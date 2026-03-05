@@ -1,10 +1,21 @@
 // Google Apps Script — Production Log
 // Paste this into your Apps Script editor (Extensions > Apps Script)
 // Then deploy as Web App (Execute as: Me, Access: Anyone)
+//
+// Config sheet layout (must match exactly):
+//   A: Item  |  B: Operation  |  C: (empty)  |  D: Issue Types  |  E: (empty)  |  F: Employees
 
 const SS = SpreadsheetApp.getActiveSpreadsheet();
 const LOG_SHEET = 'Log';
 const CONFIG_SHEET = 'Config';
+
+// Column positions in the Config sheet (1-indexed)
+const COL = {
+  ITEM: 1,       // A
+  OPERATION: 2,  // B
+  ISSUE_TYPE: 4, // D
+  EMPLOYEE: 6    // F
+};
 
 // ── GET: return config data to the HTML form ──
 function doGet(e) {
@@ -72,7 +83,7 @@ function handleSubmit(data) {
   });
 }
 
-// ── Add a new config entry (employee, item, or operation) ──
+// ── Add a new config entry (employee, item/operation, or issue type) ──
 function handleAddConfig(data) {
   const sheet = SS.getSheetByName(CONFIG_SHEET);
   if (!sheet) return jsonResponse({ success: false, error: 'Config sheet not found' });
@@ -82,36 +93,27 @@ function handleAddConfig(data) {
   if (!value) return jsonResponse({ success: false, error: 'Empty value' });
 
   if (type === 'employee') {
-    const col = getConfigColumn(sheet, 'Employees');
-    if (col === -1) return jsonResponse({ success: false, error: 'Employees column not found in Config sheet' });
-    const existing = getColumnValues(sheet, col);
+    const existing = getColumnValues(sheet, COL.EMPLOYEE);
     if (existing.indexOf(value) === -1) {
-      sheet.getRange(existing.length + 2, col).setValue(value); // +2: header + next empty row
+      sheet.getRange(existing.length + 2, COL.EMPLOYEE).setValue(value);
     }
     return jsonResponse({ success: true, config_type: type, value: value });
 
-  } else if (type === 'item') {
-    // Add to Items column; also used by operations lookup
-    const col = getConfigColumn(sheet, 'Items');
-    if (col === -1) return jsonResponse({ success: false, error: 'Items column not found in Config sheet' });
-    const existing = getColumnValues(sheet, col);
+  } else if (type === 'issue_type') {
+    const existing = getColumnValues(sheet, COL.ISSUE_TYPE);
     if (existing.indexOf(value) === -1) {
-      sheet.getRange(existing.length + 2, col).setValue(value);
+      sheet.getRange(existing.length + 2, COL.ISSUE_TYPE).setValue(value);
     }
     return jsonResponse({ success: true, config_type: type, value: value });
 
   } else if (type === 'operation') {
-    // Operations are stored as two paired columns: Items | Operations
-    const itemCol = getConfigColumn(sheet, 'Op_Item');
-    const opCol = getConfigColumn(sheet, 'Op_Operation');
-    if (itemCol === -1 || opCol === -1) return jsonResponse({ success: false, error: 'Op_Item / Op_Operation columns not found in Config sheet' });
-
+    // Operations are paired: col A = Item, col B = Operation
     const itemName = (data.item || '').trim();
     if (!itemName) return jsonResponse({ success: false, error: 'Item name required for operation' });
 
     // Check for duplicates
-    const items = getColumnValues(sheet, itemCol);
-    const ops = getColumnValues(sheet, opCol);
+    const items = getColumnValues(sheet, COL.ITEM);
+    const ops = getColumnValues(sheet, COL.OPERATION);
     for (let i = 0; i < items.length; i++) {
       if (items[i] === itemName && ops[i] === value) {
         return jsonResponse({ success: true, config_type: type, value: value, note: 'Already exists' });
@@ -119,8 +121,8 @@ function handleAddConfig(data) {
     }
 
     const nextRow = Math.max(items.length, ops.length) + 2;
-    sheet.getRange(nextRow, itemCol).setValue(itemName);
-    sheet.getRange(nextRow, opCol).setValue(value);
+    sheet.getRange(nextRow, COL.ITEM).setValue(itemName);
+    sheet.getRange(nextRow, COL.OPERATION).setValue(value);
     return jsonResponse({ success: true, config_type: type, value: value, item: itemName });
 
   } else {
@@ -133,21 +135,16 @@ function getConfig() {
   const sheet = SS.getSheetByName(CONFIG_SHEET);
   if (!sheet) throw new Error('Config sheet not found');
 
-  const employees = getColumnValues(sheet, getConfigColumn(sheet, 'Employees'));
-  const issueTypes = getColumnValues(sheet, getConfigColumn(sheet, 'Issues'));
-  const items = getColumnValues(sheet, getConfigColumn(sheet, 'Items'));
+  const employees = getColumnValues(sheet, COL.EMPLOYEE);
+  const issueTypes = getColumnValues(sheet, COL.ISSUE_TYPE);
 
-  // Build operations list from paired columns
-  const opItemCol = getConfigColumn(sheet, 'Op_Item');
-  const opOpCol = getConfigColumn(sheet, 'Op_Operation');
+  // Build operations list from paired columns A + B
+  const items = getColumnValues(sheet, COL.ITEM);
+  const ops = getColumnValues(sheet, COL.OPERATION);
   const operations = [];
-  if (opItemCol !== -1 && opOpCol !== -1) {
-    const opItems = getColumnValues(sheet, opItemCol);
-    const opOps = getColumnValues(sheet, opOpCol);
-    for (let i = 0; i < opItems.length; i++) {
-      if (opItems[i] && opOps[i]) {
-        operations.push({ item: opItems[i], operation: opOps[i] });
-      }
+  for (let i = 0; i < items.length; i++) {
+    if (items[i] && ops[i]) {
+      operations.push({ item: items[i], operation: ops[i] });
     }
   }
 
@@ -155,16 +152,7 @@ function getConfig() {
 }
 
 // ── Helpers ──
-function getConfigColumn(sheet, headerName) {
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  for (let i = 0; i < headers.length; i++) {
-    if (headers[i].toString().trim() === headerName) return i + 1;
-  }
-  return -1;
-}
-
 function getColumnValues(sheet, col) {
-  if (col === -1 || col === undefined) return [];
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
   return sheet.getRange(2, col, lastRow - 1, 1).getValues()
