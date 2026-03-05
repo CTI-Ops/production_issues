@@ -6,7 +6,7 @@
 //   A: Item  |  B: Operation  |  C: (empty)  |  D: Issue Types
 
 const SS = SpreadsheetApp.getActiveSpreadsheet();
-const LOG_SHEET = 'Log';
+const LOG_SHEET = 'Data Log';
 const CONFIG_SHEET = 'Config';
 
 // Column positions in the Config sheet (1-indexed)
