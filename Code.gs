@@ -3,7 +3,7 @@
 // Then deploy as Web App (Execute as: Me, Access: Anyone)
 //
 // Config sheet layout (must match exactly):
-//   A: Item  |  B: Operation  |  C: (empty)  |  D: Issue Types  |  E: (empty)  |  F: Employees
+//   A: Item  |  B: Operation  |  C: (empty)  |  D: Issue Types
 
 const SS = SpreadsheetApp.getActiveSpreadsheet();
 const LOG_SHEET = 'Log';
@@ -13,13 +13,16 @@ const CONFIG_SHEET = 'Config';
 const COL = {
   ITEM: 1,       // A
   OPERATION: 2,  // B
-  ISSUE_TYPE: 4, // D
-  EMPLOYEE: 6    // F
+  ISSUE_TYPE: 4  // D
 };
 
-// ── GET: return config data to the HTML form ──
+// ── GET: return config data or dashboard KPIs ──
 function doGet(e) {
   try {
+    const action = (e.parameter && e.parameter.action) || '';
+    if (action === 'dashboard') {
+      return jsonResponse(getDashboardData());
+    }
     const config = getConfig();
     return ContentService.createTextOutput(JSON.stringify(config))
       .setMimeType(ContentService.MimeType.JSON);
@@ -48,7 +51,7 @@ function doPost(e) {
 
 // ── Submit a production log entry ──
 // Log sheet columns:
-//   A: Id | B: Submission Time | C: Name | D: Date | E: Process Task
+//   A: Id | B: Submission Time | C: Date | D: Item | E: Process Task
 //   F: Start Time | G: End Time | H: Quantity | I: Issues | J: Comments
 //   K: Task Time (min) | L: Expected (min) | M: Time/Part (min)
 //   N: Standard (min/part) | O: % Difference | P: Issue Count
@@ -70,9 +73,9 @@ function handleSubmit(data) {
   sheet.appendRow([
     id,                  // A: Id
     new Date(),          // B: Submission Time
-    data.name,           // C: Name
-    data.date,           // D: Date
-    data.operation,      // E: Process Task (operation includes item context)
+    data.date,           // C: Date
+    data.item,           // D: Item
+    data.operation,      // E: Process Task
     data.start_time,     // F: Start Time
     data.end_time,       // G: End Time
     qty,                 // H: Quantity
@@ -108,14 +111,7 @@ function handleAddConfig(data) {
   const value = (data.value || '').trim();
   if (!value) return jsonResponse({ success: false, error: 'Empty value' });
 
-  if (type === 'employee') {
-    const existing = getColumnValues(sheet, COL.EMPLOYEE);
-    if (existing.indexOf(value) === -1) {
-      sheet.getRange(existing.length + 2, COL.EMPLOYEE).setValue(value);
-    }
-    return jsonResponse({ success: true, config_type: type, value: value });
-
-  } else if (type === 'issue_type') {
+  if (type === 'issue_type') {
     const existing = getColumnValues(sheet, COL.ISSUE_TYPE);
     if (existing.indexOf(value) === -1) {
       sheet.getRange(existing.length + 2, COL.ISSUE_TYPE).setValue(value);
@@ -151,7 +147,6 @@ function getConfig() {
   const sheet = SS.getSheetByName(CONFIG_SHEET);
   if (!sheet) throw new Error('Config sheet not found');
 
-  const employees = getColumnValues(sheet, COL.EMPLOYEE);
   const issueTypes = getColumnValues(sheet, COL.ISSUE_TYPE);
 
   // Build operations list from paired columns A + B
@@ -164,7 +159,76 @@ function getConfig() {
     }
   }
 
-  return { employees, operations, issue_types: issueTypes };
+  return { operations, issue_types: issueTypes };
+}
+
+// ── Dashboard: aggregate KPIs from the Log sheet ──
+function getDashboardData() {
+  const sheet = SS.getSheetByName(LOG_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) {
+    return { total_entries: 0, total_parts: 0, total_time_min: 0, entries_with_issues: 0,
+             issues_breakdown: {}, items_breakdown: {}, recent_entries: [], period: 'all time' };
+  }
+
+  const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
+
+  // Columns (0-indexed): A:Id B:Time C:Date D:Item E:Op F:Start G:End H:Qty I:Issues J:Comments K:TaskTime
+  let totalEntries = 0, totalParts = 0, totalTime = 0, entriesWithIssues = 0;
+  const issuesBreakdown = {}, itemsBreakdown = {};
+  const recentRows = [];
+
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    const rowDate = row[2] ? row[2].toString() : '';
+    // Match today's date (handles both Date objects and strings)
+    const dateStr = (rowDate instanceof Date)
+      ? Utilities.formatDate(rowDate, Session.getScriptTimeZone(), 'yyyy-MM-dd')
+      : rowDate.substring(0, 10);
+    if (dateStr !== today) continue;
+
+    totalEntries++;
+    const qty = parseInt(row[7]) || 0;
+    const taskTime = parseInt(row[10]) || 0;
+    totalParts += qty;
+    totalTime += taskTime;
+
+    // Issues
+    const issueStr = (row[8] || '').toString().trim();
+    const issues = issueStr ? issueStr.split(';').map(s => s.trim()).filter(s => s) : [];
+    const hasRealIssue = issues.some(s => s !== 'None');
+    if (hasRealIssue) entriesWithIssues++;
+    issues.forEach(function(iss) {
+      if (iss && iss !== 'None') issuesBreakdown[iss] = (issuesBreakdown[iss] || 0) + 1;
+    });
+
+    // Items
+    const item = (row[3] || '').toString().trim();
+    if (item) itemsBreakdown[item] = (itemsBreakdown[item] || 0) + qty;
+
+    recentRows.push({
+      item: item,
+      operation: (row[4] || '').toString(),
+      task_time_min: taskTime,
+      quantity: qty,
+      issues: issueStr
+    });
+  }
+
+  // Return most recent first, cap at 20
+  recentRows.reverse();
+  const recent = recentRows.slice(0, 20);
+
+  return {
+    total_entries: totalEntries,
+    total_parts: totalParts,
+    total_time_min: totalTime,
+    entries_with_issues: entriesWithIssues,
+    issues_breakdown: issuesBreakdown,
+    items_breakdown: itemsBreakdown,
+    recent_entries: recent,
+    period: 'today'
+  };
 }
 
 // ── Helpers ──

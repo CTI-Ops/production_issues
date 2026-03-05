@@ -94,24 +94,8 @@
   .add-new-row button { font-family: 'DM Sans', sans-serif; font-size: 0.75rem; font-weight: 600; padding: 0.4rem 0.7rem; border-radius: 6px; cursor: pointer; border: none; flex-shrink: 0; }
   .add-new-row .btn-add { background: var(--accent); color: #000; }
   .add-new-row .btn-cancel { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
-  /* Dashboard */
-  .dash { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem; margin-bottom: 0.75rem; }
-  @media (max-width: 540px) { .dash { grid-template-columns: 1fr 1fr; } }
-  .kpi { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 0.8rem 1rem; display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
-  .kpi-val { font-family: 'JetBrains Mono', monospace; font-size: 1.4rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1.2; }
-  .kpi-label { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
-  .kpi-sub { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-dim); }
-  .kpi.accent .kpi-val { color: var(--accent); }
-  .kpi.green .kpi-val { color: var(--green); }
-  .kpi.red .kpi-val { color: var(--red); }
-  .dash-detail { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 0.75rem; overflow: hidden; }
-  .dash-detail .section-head { padding: 0.7rem 1rem; display: flex; align-items: center; gap: 0.6rem; border-bottom: 1px solid var(--border); }
-  .dash-bar-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.4rem 1rem; font-size: 0.75rem; }
-  .dash-bar-label { flex-shrink: 0; width: 110px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .dash-bar-track { flex: 1; height: 6px; background: var(--bg-input); border-radius: 3px; overflow: hidden; }
-  .dash-bar-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.4s ease; }
-  .dash-bar-val { flex-shrink: 0; width: 32px; text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-dim); }
-  .dash-empty { padding: 1.5rem 1rem; text-align: center; color: var(--text-muted); font-size: 0.8rem; }
+  .nav-link { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--accent); text-decoration: none; padding: 0.3rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; transition: all 0.15s; }
+  .nav-link:hover { background: var(--accent-glow); border-color: var(--accent); }
   .log-section { margin-top: 0.75rem; }
   .log-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .log-table { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; }
@@ -122,7 +106,7 @@
 <body>
 <header>
   <div class="logo"><div class="logo-mark">PL</div><div class="logo-text">Production Log</div></div>
-  <div class="header-meta" id="clock"></div>
+  <div style="display:flex;align-items:center;gap:0.8rem;"><a href="dashboard.html" class="nav-link">Dashboard</a><div class="header-meta" id="clock"></div></div>
 </header>
 <main>
   <div class="config-banner" id="configBanner">
@@ -131,27 +115,10 @@
     <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/your-id-here/exec" value="">
     <button onclick="saveUrl()">Save &amp; Connect</button>
   </div>
-  <div class="dash" id="dashKpis">
-    <div class="kpi accent"><div class="kpi-val" id="kpiEntries">0</div><div class="kpi-label">Entries</div><div class="kpi-sub">this session</div></div>
-    <div class="kpi"><div class="kpi-val" id="kpiParts">0</div><div class="kpi-label">Total Parts</div><div class="kpi-sub" id="kpiPartsAvg">&mdash;</div></div>
-    <div class="kpi green"><div class="kpi-val" id="kpiTime">0m</div><div class="kpi-label">Total Time</div><div class="kpi-sub" id="kpiTimePer">&mdash;</div></div>
-    <div class="kpi" id="kpiIssueCard"><div class="kpi-val" id="kpiIssueRate">0%</div><div class="kpi-label">Issue Rate</div><div class="kpi-sub" id="kpiIssueSub">of entries</div></div>
-  </div>
-  <div class="dash-detail" id="dashIssues" style="display:none;">
-    <div class="section-head"><span class="section-num">KPI</span><span class="section-label">Issues Breakdown</span></div>
-    <div id="dashIssuesBars"></div>
-  </div>
-  <div class="dash-detail" id="dashItems" style="display:none;">
-    <div class="section-head"><span class="section-num">KPI</span><span class="section-label">Items Logged</span></div>
-    <div id="dashItemsBars"></div>
-  </div>
-  <div class="section"><div class="section-head"><span class="section-num">01</span><span class="section-label">Operator &amp; Date</span></div>
-    <div class="section-body"><div class="row c2">
-      <div class="field"><label>Name <span class="req">*</span></label><select id="name" onchange="handleAddNew(this,'operator')"><option value="">Select operator...</option></select>
-        <div class="add-new-row" id="addRow_operator" style="display:none;"><input type="text" id="addInput_operator" placeholder="New operator name..."><button class="btn-add" onclick="confirmAdd('operator')">Add</button><button class="btn-cancel" onclick="cancelAdd('operator')">Cancel</button></div>
-      </div>
+  <div class="section"><div class="section-head"><span class="section-num">01</span><span class="section-label">Date</span></div>
+    <div class="section-body">
       <div class="field"><label>Date <span class="req">*</span></label><input type="date" id="date"></div>
-    </div></div>
+    </div>
   </div>
   <div class="section"><div class="section-head"><span class="section-num">02</span><span class="section-label">Item &amp; Operation</span></div>
     <div class="section-body">
@@ -201,7 +168,6 @@ async function init(){
   updateClock(); setInterval(updateClock,1000);
   document.getElementById('date').value=new Date().toISOString().split('T')[0];
   if(SCRIPT_URL){document.getElementById('scriptUrl').value=SCRIPT_URL; await loadConfig();}
-  const lastOp=localStorage.getItem('prodlog_operator'); if(lastOp) document.getElementById('name').value=lastOp;
   ['start_time','end_time','quantity','operation'].forEach(id=>{
     const el=document.getElementById(id); el.addEventListener('input',updatePreview); el.addEventListener('change',updatePreview);
   });
@@ -222,11 +188,6 @@ function getCustom(key){try{return JSON.parse(localStorage.getItem('prodlog_cust
 function saveCustom(key,arr){localStorage.setItem('prodlog_custom_'+key,JSON.stringify(arr));}
 
 function populateForm(){
-  const ns=document.getElementById('name'); ns.innerHTML='<option value="">Select operator...</option>';
-  const allEmployees=[...new Set([...CONFIG.employees,...getCustom('operators')])];
-  allEmployees.forEach(emp=>{const o=document.createElement('option'); o.value=emp; o.textContent=emp; ns.appendChild(o);});
-  ns.appendChild(new Option('+ Add new...','__add_new__'));
-
   const is=document.getElementById('item'); is.innerHTML='<option value="">Select item...</option>';
   const configItems=[...new Set(CONFIG.operations.map(op=>op.item))];
   const allItems=[...new Set([...configItems,...getCustom('items')])];
@@ -239,7 +200,6 @@ function populateForm(){
     lbl.innerHTML='<input type="checkbox" value="'+issue+'" '+(issue==='None'?'checked':'')+' onchange="handleIssue(this)"><span>'+issue+'</span>';
     grid.appendChild(lbl);
   });
-  const lastOp=localStorage.getItem('prodlog_operator'); if(lastOp) ns.value=lastOp;
   const lastItem=localStorage.getItem('prodlog_item'); if(lastItem){is.value=lastItem; onItemChange();}
 }
 
@@ -264,14 +224,7 @@ function confirmAdd(type){
   const val=input.value.trim();
   if(!val){showToast('err','Empty','Please enter a name.');return;}
 
-  if(type==='operator'){
-    const custom=getCustom('operators'); if(!custom.includes(val)){custom.push(val); saveCustom('operators',custom);}
-    const sel=document.getElementById('name');
-    const addOpt=sel.querySelector('option[value="__add_new__"]');
-    sel.insertBefore(new Option(val,val),addOpt);
-    sel.value=val;
-    syncToConfig('employee',val);
-  } else if(type==='item'){
+  if(type==='item'){
     const custom=getCustom('items'); if(!custom.includes(val)){custom.push(val); saveCustom('items',custom);}
     const sel=document.getElementById('item');
     const addOpt=sel.querySelector('option[value="__add_new__"]');
@@ -299,7 +252,7 @@ function cancelAdd(type){
   document.getElementById('addInput_'+type).value='';
   document.getElementById('addRow_'+type).style.display='none';
 }
-['operator','item','operation'].forEach(type=>{
+['item','operation'].forEach(type=>{
   document.getElementById('addInput_'+type).addEventListener('keydown',e=>{
     if(e.key==='Enter')confirmAdd(type); if(e.key==='Escape')cancelAdd(type);
   });
@@ -352,18 +305,18 @@ async function submitForm(){
   if(!SCRIPT_URL){showToast('err','Not Connected','Set up the script URL first.');return;}
   const btn=document.getElementById('submitBtn');
   const tt=getTimeSpent();
-  const data={action:'submit', name:document.getElementById('name').value, date:document.getElementById('date').value,
+  const data={action:'submit', date:document.getElementById('date').value,
     item:document.getElementById('item').value, operation:document.getElementById('operation').value,
     start_time:document.getElementById('start_time').value, end_time:document.getElementById('end_time').value,
     quantity:document.getElementById('quantity').value, issues:getIssues(), comments:document.getElementById('comments').value};
-  if(!data.name||!data.date||!data.item||!data.operation||!data.start_time||!data.end_time||!data.quantity){showToast('err','Missing Fields','Fill in all required fields.');return;}
+  if(!data.date||!data.item||!data.operation||!data.start_time||!data.end_time||!data.quantity){showToast('err','Missing Fields','Fill in all required fields.');return;}
   if(tt<=0){showToast('err','Time Error','End time must be after start time.');return;}
   btn.disabled=true; btn.textContent='Submitting...';
   try{
     const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(data)});
     const result=await res.json();
     if(result.success){const c=result.calculated; showToast('ok','Entry #'+result.id+' Saved', data.item+' \u2192 '+data.operation+' \u2014 '+c.task_time_min+'min, '+c.time_per_part+'min/part');
-      localStorage.setItem('prodlog_operator',data.name); addToLog(result.id,data,c); clearTaskFields();
+      addToLog(result.id,data,c); clearTaskFields();
     }else{showToast('err','Error',result.error||'Unknown error');}
   }catch(e){showToast('err','Connection Error','Could not reach Google Sheet.');}
   btn.disabled=false; btn.textContent='Submit Entry';
@@ -374,74 +327,6 @@ function addToLog(id,data,calc){
   const body=document.getElementById('logBody'), tr=document.createElement('tr');
   tr.innerHTML='<td>'+sessionEntries.length+'</td><td>'+data.item+'</td><td style="font-size:0.68rem">'+data.operation+'</td><td>'+calc.task_time_min+'m</td><td>'+data.quantity+'</td><td>'+calc.time_per_part+'</td>';
   body.insertBefore(tr,body.firstChild);
-  updateDashboard();
-}
-
-function updateDashboard(){
-  const n=sessionEntries.length;
-  if(!n) return;
-
-  // Entries
-  document.getElementById('kpiEntries').textContent=n;
-
-  // Total parts & avg
-  let totalParts=0, totalTime=0;
-  const issueCounts={}, itemCounts={};
-  let entriesWithIssues=0;
-
-  sessionEntries.forEach(e=>{
-    const q=parseInt(e.data.quantity)||0;
-    const t=parseFloat(e.calc.task_time_min)||0;
-    totalParts+=q; totalTime+=t;
-
-    // Issues
-    const issues=(e.data.issues||'').split(';').filter(Boolean);
-    const hasRealIssue=issues.some(i=>i!=='None');
-    if(hasRealIssue) entriesWithIssues++;
-    issues.forEach(i=>{if(i&&i!=='None'){issueCounts[i]=(issueCounts[i]||0)+1;}});
-
-    // Items
-    const item=e.data.item;
-    if(item){itemCounts[item]=(itemCounts[item]||0)+q;}
-  });
-
-  document.getElementById('kpiParts').textContent=totalParts;
-  document.getElementById('kpiPartsAvg').textContent=(totalParts/n).toFixed(0)+' avg/entry';
-
-  document.getElementById('kpiTime').textContent=totalTime+'m';
-  const avgTpp=totalParts>0?(totalTime/totalParts):0;
-  document.getElementById('kpiTimePer').textContent=avgTpp.toFixed(2)+' min/part';
-
-  // Issue rate
-  const rate=n>0?Math.round((entriesWithIssues/n)*100):0;
-  document.getElementById('kpiIssueRate').textContent=rate+'%';
-  document.getElementById('kpiIssueSub').textContent=entriesWithIssues+' of '+n+' entries';
-  const card=document.getElementById('kpiIssueCard');
-  card.className='kpi'+(rate>50?' red':rate>0?' accent':' green');
-
-  // Issue breakdown bars
-  const issueKeys=Object.keys(issueCounts).sort((a,b)=>issueCounts[b]-issueCounts[a]);
-  const issuePanel=document.getElementById('dashIssues');
-  const issueBars=document.getElementById('dashIssuesBars');
-  if(issueKeys.length){
-    issuePanel.style.display='block';
-    const maxIssue=issueCounts[issueKeys[0]]||1;
-    issueBars.innerHTML=issueKeys.map(k=>
-      '<div class="dash-bar-row"><span class="dash-bar-label">'+k+'</span><div class="dash-bar-track"><div class="dash-bar-fill" style="width:'+Math.round((issueCounts[k]/maxIssue)*100)+'%"></div></div><span class="dash-bar-val">'+issueCounts[k]+'</span></div>'
-    ).join('');
-  } else { issuePanel.style.display='none'; }
-
-  // Item breakdown bars
-  const itemKeys=Object.keys(itemCounts).sort((a,b)=>itemCounts[b]-itemCounts[a]);
-  const itemPanel=document.getElementById('dashItems');
-  const itemBars=document.getElementById('dashItemsBars');
-  if(itemKeys.length){
-    itemPanel.style.display='block';
-    const maxItem=itemCounts[itemKeys[0]]||1;
-    itemBars.innerHTML=itemKeys.map(k=>
-      '<div class="dash-bar-row"><span class="dash-bar-label">'+k+'</span><div class="dash-bar-track"><div class="dash-bar-fill" style="width:'+Math.round((itemCounts[k]/maxItem)*100)+'%"></div></div><span class="dash-bar-val">'+itemCounts[k]+'</span></div>'
-    ).join('');
-  } else { itemPanel.style.display='none'; }
 }
 
 function clearTaskFields(){
@@ -451,7 +336,7 @@ function clearTaskFields(){
   document.querySelectorAll('#issueGrid input[type="checkbox"]').forEach(cb=>{cb.checked=cb.value==='None';});
   document.querySelectorAll('.check-item').forEach(item=>{const box=item.querySelector('input'); item.classList.remove('on'); item.classList.toggle('none-on',box.value==='None');});
 }
-function resetForm(){document.getElementById('name').value=''; document.getElementById('date').value=new Date().toISOString().split('T')[0]; document.getElementById('item').value=''; onItemChange(); clearTaskFields();}
+function resetForm(){document.getElementById('date').value=new Date().toISOString().split('T')[0]; document.getElementById('item').value=''; onItemChange(); clearTaskFields();}
 
 function showToast(type,title,body){const t=document.getElementById('toast'); document.getElementById('toastTitle').textContent=(type==='ok'?'\u2713 ':'\u2717 ')+title; document.getElementById('toastBody').textContent=body; t.className='toast '+type+' show'; if(toastTimer) clearTimeout(toastTimer); toastTimer=setTimeout(hideToast,7000);}
 function hideToast(){document.getElementById('toast').classList.remove('show');}
