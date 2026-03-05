@@ -301,9 +301,10 @@ async function submitForm(){
   if(!SCRIPT_URL){showToast('err','Not Connected','Set up the script URL first.');return;}
   const btn=document.getElementById('submitBtn');
   const tt=getTimeSpent();
+  const now=new Date(), startTime=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
   const data={action:'submit', name:document.getElementById('name').value, date:document.getElementById('date').value,
     item:document.getElementById('item').value, operation:document.getElementById('operation').value,
-    time_spent:tt, quantity:document.getElementById('quantity').value, issues:getIssues(), comments:document.getElementById('comments').value};
+    start_time:startTime, time_spent:tt, quantity:document.getElementById('quantity').value, issues:getIssues(), comments:document.getElementById('comments').value};
   if(!data.name||!data.date||!data.item||!data.operation||!tt||!data.quantity){showToast('err','Missing Fields','Fill in all required fields.');return;}
   if(tt<=0){showToast('err','Time Error','Time spent must be greater than zero.');return;}
   btn.disabled=true; btn.textContent='Submitting...';
