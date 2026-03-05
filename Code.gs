@@ -47,6 +47,12 @@ function doPost(e) {
 }
 
 // ── Submit a production log entry ──
+// Log sheet columns:
+//   A: Id | B: Submission Time | C: Name | D: Date | E: Process Task
+//   F: Start Time | G: End Time | H: Quantity | I: Issues | J: Comments
+//   K: Task Time (min) | L: Expected (min) | M: Time/Part (min)
+//   N: Standard (min/part) | O: % Difference | P: Issue Count
+//   Q: Off Target No Issue (Hrs) | R: On Target | S: Time Error
 function handleSubmit(data) {
   const sheet = SS.getSheetByName(LOG_SHEET) || SS.insertSheet(LOG_SHEET);
   const id = sheet.getLastRow(); // row number as entry ID
@@ -57,20 +63,30 @@ function handleSubmit(data) {
   const qty = parseInt(data.quantity) || 1;
   const timePer = (taskTime / qty).toFixed(2);
 
+  // Count semicolon-separated issues (blank = 0)
+  const issueStr = (data.issues || '').trim();
+  const issueCount = issueStr ? issueStr.split(';').filter(s => s.trim()).length : 0;
+
   sheet.appendRow([
-    id,
-    new Date(),
-    data.name,
-    data.date,
-    data.item,
-    data.operation,
-    data.start_time,
-    data.end_time,
-    taskTime,
-    data.quantity,
-    timePer,
-    data.issues,
-    data.comments
+    id,                  // A: Id
+    new Date(),          // B: Submission Time
+    data.name,           // C: Name
+    data.date,           // D: Date
+    data.operation,      // E: Process Task (operation includes item context)
+    data.start_time,     // F: Start Time
+    data.end_time,       // G: End Time
+    qty,                 // H: Quantity
+    issueStr,            // I: Issues
+    data.comments,       // J: Comments
+    taskTime,            // K: Task Time (min)
+    '',                  // L: Expected (min) — filled by sheet formula
+    timePer,             // M: Time/Part (min)
+    '',                  // N: Standard (min/part) — filled by sheet formula
+    '',                  // O: % Difference — filled by sheet formula
+    issueCount,          // P: Issue Count
+    '',                  // Q: Off Target No Issue (Hrs) — filled by sheet formula
+    '',                  // R: On Target — filled by sheet formula
+    ''                   // S: Time Error — filled by sheet formula
   ]);
 
   return jsonResponse({
