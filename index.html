@@ -118,18 +118,13 @@
           <div class="add-new-row" id="addRow_operation" style="display:none;"><input type="text" id="addInput_operation" placeholder="New operation name..."><button class="btn-add" onclick="confirmAdd('operation')">Add</button><button class="btn-cancel" onclick="cancelAdd('operation')">Cancel</button></div>
         </div>
       </div>
-      <div class="row c2">
-        <div class="field"><label>Time Spent on Issue <span class="req">*</span></label>
-          <div style="display:flex;gap:0.5rem;align-items:center;">
-            <select id="time_hours" style="width:auto;flex:1;"><option value="">HH</option></select>
-            <span style="color:var(--text-muted);font-weight:600;">:</span>
-            <select id="time_minutes" style="width:auto;flex:1;"><option value="">MM</option></select>
-          </div>
-        </div>
+      <div class="row c3">
+        <div class="field"><label>Start Time <span class="req">*</span></label><input type="time" id="start_time"></div>
+        <div class="field"><label>End Time <span class="req">*</span></label><input type="time" id="end_time"></div>
         <div class="field"><label>Qty with Issues <span class="req">*</span></label><input type="number" id="quantity" min="1" placeholder="25"></div>
       </div>
       <div class="preview" id="preview">
-        <div class="prev-row"><span class="prev-label">Task Time</span><span class="prev-val" id="pTime"></span></div>
+        <div class="prev-row"><span class="prev-label">Total Time</span><span class="prev-val" id="pTime"></span></div>
         <div class="prev-row"><span class="prev-label">Time/Part</span><span class="prev-val" id="pPart"></span></div>
       </div>
     </div>
@@ -162,10 +157,7 @@ async function init(){
   document.getElementById('date').value=new Date().toISOString().split('T')[0];
   if(SCRIPT_URL){document.getElementById('scriptUrl').value=SCRIPT_URL; await loadConfig();}
   const lastOp=localStorage.getItem('prodlog_operator'); if(lastOp) document.getElementById('name').value=lastOp;
-  const hSel=document.getElementById('time_hours'), mSel=document.getElementById('time_minutes');
-  for(let h=0;h<=23;h++){const o=document.createElement('option'); o.value=h; o.textContent=String(h).padStart(2,'0')+' hr'; hSel.appendChild(o);}
-  for(let m=0;m<=55;m+=5){const o=document.createElement('option'); o.value=m; o.textContent=String(m).padStart(2,'0')+' min'; mSel.appendChild(o);}
-  ['time_hours','time_minutes','quantity','operation'].forEach(id=>{
+  ['start_time','end_time','quantity','operation'].forEach(id=>{
     const el=document.getElementById(id); el.addEventListener('input',updatePreview); el.addEventListener('change',updatePreview);
   });
 }
@@ -283,9 +275,11 @@ function handleIssue(cb){
 function getIssues(){return Array.from(document.querySelectorAll('#issueGrid input:checked')).map(c=>c.value).join(';');}
 
 function getTimeSpent(){
-  const h=document.getElementById('time_hours').value, m=document.getElementById('time_minutes').value;
-  if(h===''&&m==='') return 0;
-  return (parseInt(h)||0)*60+(parseInt(m)||0);
+  const s=document.getElementById('start_time').value, e=document.getElementById('end_time').value;
+  if(!s||!e) return 0;
+  const sp=s.split(':'), ep=e.split(':');
+  const startMin=parseInt(sp[0])*60+parseInt(sp[1]), endMin=parseInt(ep[0])*60+parseInt(ep[1]);
+  return endMin-startMin;
 }
 function updatePreview(){
   const p=document.getElementById('preview'), tt=getTimeSpent();
@@ -303,9 +297,10 @@ async function submitForm(){
   const tt=getTimeSpent();
   const data={action:'submit', name:document.getElementById('name').value, date:document.getElementById('date').value,
     item:document.getElementById('item').value, operation:document.getElementById('operation').value,
-    time_spent:tt, quantity:document.getElementById('quantity').value, issues:getIssues(), comments:document.getElementById('comments').value};
-  if(!data.name||!data.date||!data.item||!data.operation||!tt||!data.quantity){showToast('err','Missing Fields','Fill in all required fields.');return;}
-  if(tt<=0){showToast('err','Time Error','Time spent must be greater than zero.');return;}
+    start_time:document.getElementById('start_time').value, end_time:document.getElementById('end_time').value,
+    quantity:document.getElementById('quantity').value, issues:getIssues(), comments:document.getElementById('comments').value};
+  if(!data.name||!data.date||!data.item||!data.operation||!data.start_time||!data.end_time||!data.quantity){showToast('err','Missing Fields','Fill in all required fields.');return;}
+  if(tt<=0){showToast('err','Time Error','End time must be after start time.');return;}
   btn.disabled=true; btn.textContent='Submitting...';
   try{
     const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(data)});
@@ -325,8 +320,8 @@ function addToLog(id,data,calc){
 }
 
 function clearTaskFields(){
-  document.getElementById('operation').value=''; document.getElementById('time_hours').value='';
-  document.getElementById('time_minutes').value=''; document.getElementById('quantity').value='';
+  document.getElementById('operation').value=''; document.getElementById('start_time').value='';
+  document.getElementById('end_time').value=''; document.getElementById('quantity').value='';
   document.getElementById('comments').value=''; document.getElementById('preview').classList.remove('on');
   document.querySelectorAll('#issueGrid input[type="checkbox"]').forEach(cb=>{cb.checked=cb.value==='None';});
   document.querySelectorAll('.check-item').forEach(item=>{const box=item.querySelector('input'); item.classList.remove('on'); item.classList.toggle('none-on',box.value==='None');});
