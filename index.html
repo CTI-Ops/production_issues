@@ -171,7 +171,7 @@ function saveUrl(){
 
 async function loadConfig(){
   try{const res=await fetch(SCRIPT_URL); CONFIG=await res.json(); if(CONFIG.error) throw new Error(CONFIG.error); populateForm(); document.getElementById('configBanner').classList.remove('visible');}
-  catch(e){showToast('err','Connection Failed','Could not reach Google Sheet. Check URL and deployment.');}
+  catch(e){document.getElementById('configBanner').classList.add('visible'); showToast('err','Connection Failed','Could not reach Google Sheet. Check URL and deployment.');}
 }
 
 function getCustom(key){try{return JSON.parse(localStorage.getItem('prodlog_custom_'+key))||[];}catch(e){return[];}}
