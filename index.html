@@ -48,15 +48,18 @@
     .actions { padding: 0.75rem; }
     input, select, textarea { font-size: 16px; }
   }
+  .field { min-width: 0; overflow: hidden; }
   .field label { display: block; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.3rem; }
   .field label .req { color: var(--accent); margin-left: 1px; }
   input, select, textarea { width: 100%; max-width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 0.88rem; color: var(--text); background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.55rem 0.75rem; outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
   input:focus, select:focus, textarea:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--accent-glow); }
-  select { cursor: pointer; }
+  select { cursor: pointer; min-width: 0; text-overflow: ellipsis; }
   select:disabled { opacity: 0.4; cursor: not-allowed; }
   textarea { resize: vertical; min-height: 60px; font-size: 0.82rem; }
   input::placeholder, textarea::placeholder { color: var(--text-muted); font-style: italic; }
+  input[type="date"], input[type="time"] { -webkit-appearance: none; appearance: none; min-width: 0; }
   input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(0.7); cursor: pointer; }
+  input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); cursor: pointer; }
   .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; }
   @media (max-width: 540px) { .checks { grid-template-columns: 1fr; } }
   .check-item { display: flex; align-items: center; gap: 0.45rem; padding: 0.45rem 0.65rem; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; transition: all 0.12s; user-select: none; }
