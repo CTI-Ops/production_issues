@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Production Log</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0e1117; --bg-card: #161b22; --bg-input: #0d1117; --bg-hover: #1c2333;
+    --border: #30363d; --border-focus: #e0952b; --text: #e6edf3; --text-dim: #8b949e;
+    --text-muted: #484f58; --accent: #e0952b; --accent-hover: #f0a840;
+    --accent-glow: rgba(224,149,43,0.12); --green: #3fb950; --green-bg: rgba(63,185,80,0.08);
+    --red: #f85149; --red-bg: rgba(248,81,73,0.08); --radius: 8px; --radius-lg: 12px;
+  }
+  html { font-size: 15px; }
+  body { font-family: 'DM Sans', -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.5; }
+  header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 0.9rem 1.5rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; backdrop-filter: blur(12px); }
+  .logo { display: flex; align-items: center; gap: 0.7rem; }
+  .logo-mark { width: 28px; height: 28px; background: var(--accent); border-radius: 6px; display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.75rem; color: #000; }
+  .logo-text { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; }
+  .header-meta { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--text-muted); }
+  main { max-width: 680px; margin: 0 auto; padding: 1.5rem 1rem 6rem; }
+  .config-banner { background: var(--red-bg); border: 1px solid rgba(248,81,73,0.25); border-radius: var(--radius); padding: 1rem 1.2rem; margin-bottom: 1.5rem; display: none; }
+  .config-banner.visible { display: block; }
+  .config-banner h3 { color: var(--red); font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem; }
+  .config-banner p { font-size: 0.8rem; color: var(--text-dim); line-height: 1.6; }
+  .config-banner input { width: 100%; margin-top: 0.5rem; padding: 0.5rem 0.7rem; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; color: var(--text); outline: none; }
+  .config-banner input:focus { border-color: var(--border-focus); }
+  .config-banner button { margin-top: 0.5rem; padding: 0.45rem 1rem; background: var(--accent); color: #000; border: none; border-radius: 6px; font-weight: 600; font-size: 0.8rem; cursor: pointer; }
+  .section { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 0.75rem; overflow: hidden; transition: border-color 0.2s; }
+  .section:focus-within { border-color: rgba(224,149,43,0.3); }
+  .section-head { padding: 0.7rem 1rem; display: flex; align-items: center; gap: 0.6rem; border-bottom: 1px solid var(--border); }
+  .section-num { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; font-weight: 600; color: var(--accent); background: var(--accent-glow); padding: 0.12rem 0.45rem; border-radius: 4px; letter-spacing: 0.04em; }
+  .section-label { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); }
+  .section-body { padding: 1rem; }
+  .row { display: grid; gap: 0.75rem; margin-bottom: 0.75rem; }
+  .row:last-child { margin-bottom: 0; }
+  .row.c2 { grid-template-columns: 1fr 1fr; }
+  .row.c3 { grid-template-columns: 1fr 1fr 1fr; }
+  @media (max-width: 540px) { .row.c2, .row.c3 { grid-template-columns: 1fr; } }
+  .field label { display: block; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.3rem; }
+  .field label .req { color: var(--accent); margin-left: 1px; }
+  input, select, textarea { width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 0.88rem; color: var(--text); background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.55rem 0.75rem; outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
+  input:focus, select:focus, textarea:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--accent-glow); }
+  select { cursor: pointer; }
+  select:disabled { opacity: 0.4; cursor: not-allowed; }
+  textarea { resize: vertical; min-height: 60px; font-size: 0.82rem; }
+  input::placeholder, textarea::placeholder { color: var(--text-muted); font-style: italic; }
+  .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; }
+  @media (max-width: 540px) { .checks { grid-template-columns: 1fr; } }
+  .check-item { display: flex; align-items: center; gap: 0.45rem; padding: 0.45rem 0.65rem; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; transition: all 0.12s; user-select: none; }
+  .check-item:hover { background: var(--bg-hover); }
+  .check-item.on { border-color: rgba(224,149,43,0.4); background: var(--accent-glow); }
+  .check-item.none-on { border-color: rgba(63,185,80,0.4); background: var(--green-bg); }
+  .check-item input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+  .check-item span { font-size: 0.8rem; }
+  .preview { margin-top: 0.75rem; padding: 0.6rem 0.8rem; background: rgba(224,149,43,0.04); border: 1px dashed rgba(224,149,43,0.2); border-radius: var(--radius); font-family: 'JetBrains Mono', monospace; font-size: 0.76rem; display: none; }
+  .preview.on { display: block; }
+  .prev-row { display: flex; justify-content: space-between; padding: 0.12rem 0; }
+  .prev-label { color: var(--text-muted); }
+  .prev-val { font-weight: 500; }
+  .prev-val.bad { color: var(--red); }
+  .actions { display: flex; gap: 0.6rem; align-items: center; padding: 1rem; }
+  .btn-submit { font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 700; color: #000; background: var(--accent); border: none; border-radius: var(--radius); padding: 0.65rem 1.8rem; cursor: pointer; transition: background 0.15s, transform 0.08s; }
+  .btn-submit:hover { background: var(--accent-hover); }
+  .btn-submit:active { transform: scale(0.97); }
+  .btn-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-clear { font-family: 'DM Sans', sans-serif; font-size: 0.82rem; font-weight: 500; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: var(--radius); padding: 0.55rem 1rem; cursor: pointer; transition: all 0.15s; }
+  .btn-clear:hover { background: var(--bg-hover); color: var(--text); }
+  .toast { position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%) translateY(120%); max-width: 460px; width: calc(100% - 2rem); padding: 0.85rem 1.1rem; border-radius: var(--radius-lg); font-size: 0.82rem; line-height: 1.5; opacity: 0; transition: transform 0.3s ease, opacity 0.3s ease; z-index: 100; box-shadow: 0 8px 30px rgba(0,0,0,0.5); }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  .toast.ok { background: #0f1d15; border: 1px solid #1a4028; color: #7ee89c; }
+  .toast.err { background: #1d0f0f; border: 1px solid #401a1a; color: #ee7e7e; }
+  .toast-title { font-weight: 600; margin-bottom: 0.15rem; }
+  .toast-body { font-family: 'JetBrains Mono', monospace; font-size: 0.74rem; opacity: 0.85; }
+  .toast-x { position: absolute; top: 0.4rem; right: 0.6rem; background: none; border: none; color: inherit; font-size: 1rem; cursor: pointer; opacity: 0.5; padding: 0.2rem; }
+  .toast-x:hover { opacity: 1; }
+  .log-section { margin-top: 0.75rem; }
+  .log-table { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; }
+  .log-table th { text-align: left; padding: 0.4rem 0.5rem; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+  .log-table td { padding: 0.35rem 0.5rem; border-bottom: 1px solid rgba(48,54,61,0.4); color: var(--text-dim); }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><div class="logo-mark">PL</div><div class="logo-text">Production Log</div></div>
+  <div class="header-meta" id="clock"></div>
+</header>
+<main>
+  <div class="config-banner visible" id="configBanner">
+    <h3>Setup Required</h3>
+    <p>Paste your Google Apps Script Web App URL below.</p>
+    <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/your-id-here/exec" value="">
+    <button onclick="saveUrl()">Save &amp; Connect</button>
+  </div>
+  <div class="section"><div class="section-head"><span class="section-num">01</span><span class="section-label">Operator &amp; Date</span></div>
+    <div class="section-body"><div class="row c2">
+      <div class="field"><label>Name <span class="req">*</span></label><select id="name"><option value="">Select operator...</option></select></div>
+      <div class="field"><label>Date <span class="req">*</span></label><input type="date" id="date"></div>
+    </div></div>
+  </div>
+  <div class="section"><div class="section-head"><span class="section-num">02</span><span class="section-label">Item &amp; Operation</span></div>
+    <div class="section-body">
+      <div class="row c2">
+        <div class="field"><label>Item <span class="req">*</span></label><select id="item" onchange="onItemChange()"><option value="">Select item...</option></select></div>
+        <div class="field"><label>Operation <span class="req">*</span></label><select id="operation" disabled><option value="">Select item first...</option></select></div>
+      </div>
+      <div class="row c3">
+        <div class="field"><label>Start Time <span class="req">*</span></label><input type="time" id="start_time"></div>
+        <div class="field"><label>End Time <span class="req">*</span></label><input type="time" id="end_time"></div>
+        <div class="field"><label>Qty Completed <span class="req">*</span></label><input type="number" id="quantity" min="1" placeholder="25"></div>
+      </div>
+      <div class="preview" id="preview">
+        <div class="prev-row"><span class="prev-label">Task Time</span><span class="prev-val" id="pTime"></span></div>
+        <div class="prev-row"><span class="prev-label">Time/Part</span><span class="prev-val" id="pPart"></span></div>
+      </div>
+    </div>
+  </div>
+  <div class="section"><div class="section-head"><span class="section-num">03</span><span class="section-label">Issues Encountered</span></div>
+    <div class="section-body"><div class="checks" id="issueGrid"></div></div>
+  </div>
+  <div class="section"><div class="section-head"><span class="section-num">04</span><span class="section-label">Comments</span></div>
+    <div class="section-body"><textarea id="comments" placeholder="Optional notes..."></textarea></div>
+  </div>
+  <div class="section"><div class="actions">
+    <button class="btn-submit" id="submitBtn" onclick="submitForm()">Submit Entry</button>
+    <button class="btn-clear" onclick="resetForm()">Clear</button>
+  </div></div>
+  <div class="section log-section" id="logSection" style="display:none;">
+    <div class="section-head"><span class="section-num">LOG</span><span class="section-label">Session Entries</span></div>
+    <div class="section-body" style="padding:0.5rem;">
+      <table class="log-table"><thead><tr><th>#</th><th>Item</th><th>Operation</th><th>Time</th><th>Qty</th><th>T/Part</th></tr></thead><tbody id="logBody"></tbody></table>
+    </div>
+  </div>
+</main>
+<div class="toast" id="toast"><button class="toast-x" onclick="hideToast()">&times;</button><div class="toast-title" id="toastTitle"></div><div class="toast-body" id="toastBody"></div></div>
+
+<script>
+let CONFIG=null, SCRIPT_URL=localStorage.getItem('prodlog_script_url')||'', sessionEntries=[], toastTimer=null;
+
+async function init(){
+  updateClock(); setInterval(updateClock,1000);
+  document.getElementById('date').value=new Date().toISOString().split('T')[0];
+  if(SCRIPT_URL){document.getElementById('scriptUrl').value=SCRIPT_URL; await loadConfig();}
+  const lastOp=localStorage.getItem('prodlog_operator'); if(lastOp) document.getElementById('name').value=lastOp;
+  ['start_time','end_time','quantity','operation'].forEach(id=>{
+    const el=document.getElementById(id); el.addEventListener('input',updatePreview); el.addEventListener('change',updatePreview);
+  });
+}
+
+function saveUrl(){
+  const url=document.getElementById('scriptUrl').value.trim();
+  if(!url.startsWith('https://script.google.com/')){showToast('err','Invalid URL','Must start with https://script.google.com/');return;}
+  SCRIPT_URL=url; localStorage.setItem('prodlog_script_url',url); loadConfig();
+}
+
+async function loadConfig(){
+  try{const res=await fetch(SCRIPT_URL); CONFIG=await res.json(); if(CONFIG.error) throw new Error(CONFIG.error); populateForm(); document.getElementById('configBanner').classList.remove('visible');}
+  catch(e){showToast('err','Connection Failed','Could not reach Google Sheet. Check URL and deployment.');}
+}
+
+function populateForm(){
+  const ns=document.getElementById('name'); ns.innerHTML='<option value="">Select operator...</option>';
+  CONFIG.employees.forEach(emp=>{const o=document.createElement('option'); o.value=emp; o.textContent=emp; ns.appendChild(o);});
+  const is=document.getElementById('item'); is.innerHTML='<option value="">Select item...</option>';
+  const items=[...new Set(CONFIG.operations.map(op=>op.item))];
+  items.forEach(item=>{const o=document.createElement('option'); o.value=item; o.textContent=item; is.appendChild(o);});
+  const grid=document.getElementById('issueGrid'); grid.innerHTML='';
+  CONFIG.issue_types.forEach(issue=>{
+    const lbl=document.createElement('label'); lbl.className='check-item'+(issue==='None'?' none-on':'');
+    lbl.innerHTML='<input type="checkbox" value="'+issue+'" '+(issue==='None'?'checked':'')+' onchange="handleIssue(this)"><span>'+issue+'</span>';
+    grid.appendChild(lbl);
+  });
+  const lastOp=localStorage.getItem('prodlog_operator'); if(lastOp) document.getElementById('name').value=lastOp;
+  const lastItem=localStorage.getItem('prodlog_item'); if(lastItem){document.getElementById('item').value=lastItem; onItemChange();}
+}
+
+function onItemChange(){
+  const itemVal=document.getElementById('item').value, opSel=document.getElementById('operation');
+  if(!itemVal||!CONFIG){opSel.innerHTML='<option value="">Select item first...</option>'; opSel.disabled=true; updatePreview(); return;}
+  const ops=CONFIG.operations.filter(op=>op.item===itemVal);
+  opSel.innerHTML='<option value="">Select operation...</option>';
+  ops.forEach(op=>{const o=document.createElement('option'); o.value=op.operation; o.textContent=op.operation; opSel.appendChild(o);});
+  opSel.disabled=false;
+  if(ops.length===1){opSel.value=ops[0].operation; updatePreview();}
+  localStorage.setItem('prodlog_item',itemVal);
+}
+
+function handleIssue(cb){
+  const all=document.querySelectorAll('#issueGrid input[type="checkbox"]'), none=document.querySelector('#issueGrid input[value="None"]');
+  if(cb.value==='None'&&cb.checked) all.forEach(b=>{if(b.value!=='None') b.checked=false;});
+  else if(cb.value!=='None'&&cb.checked) none.checked=false;
+  if(!Array.from(all).some(b=>b.checked)) none.checked=true;
+  document.querySelectorAll('.check-item').forEach(item=>{const box=item.querySelector('input'); item.classList.toggle('on',box.checked&&box.value!=='None'); item.classList.toggle('none-on',box.checked&&box.value==='None');});
+}
+function getIssues(){return Array.from(document.querySelectorAll('#issueGrid input:checked')).map(c=>c.value).join(';');}
+
+function updatePreview(){
+  const p=document.getElementById('preview'), s=document.getElementById('start_time').value, e=document.getElementById('end_time').value;
+  const q=parseInt(document.getElementById('quantity').value), op=document.getElementById('operation').value;
+  if(!s||!e||!q||!op){p.classList.remove('on');return;}
+  const tt=toMin(e)-toMin(s); if(tt<=0||q<=0){p.classList.remove('on');return;}
+  const tpp=tt/q, err=tt>480;
+  document.getElementById('pTime').textContent=tt+' min'; document.getElementById('pTime').className='prev-val'+(err?' bad':'');
+  document.getElementById('pPart').textContent=tpp.toFixed(2)+' min/part'; p.classList.add('on');
+}
+function toMin(t){const[h,m]=t.split(':').map(Number);return h*60+m;}
+
+async function submitForm(){
+  if(!SCRIPT_URL){showToast('err','Not Connected','Set up the script URL first.');return;}
+  const btn=document.getElementById('submitBtn');
+  const data={action:'submit', name:document.getElementById('name').value, date:document.getElementById('date').value,
+    item:document.getElementById('item').value, operation:document.getElementById('operation').value,
+    start_time:document.getElementById('start_time').value, end_time:document.getElementById('end_time').value,
+    quantity:document.getElementById('quantity').value, issues:getIssues(), comments:document.getElementById('comments').value};
+  if(!data.name||!data.date||!data.item||!data.operation||!data.start_time||!data.end_time||!data.quantity){showToast('err','Missing Fields','Fill in all required fields.');return;}
+  const tt=toMin(data.end_time)-toMin(data.start_time);
+  if(tt<=0){showToast('err','Time Error','End time must be after start time.');return;}
+  btn.disabled=true; btn.textContent='Submitting...';
+  try{
+    const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(data)});
+    const result=await res.json();
+    if(result.success){const c=result.calculated; showToast('ok','Entry #'+result.id+' Saved', data.item+' \u2192 '+data.operation+' \u2014 '+c.task_time_min+'min, '+c.time_per_part+'min/part');
+      localStorage.setItem('prodlog_operator',data.name); addToLog(result.id,data,c); clearTaskFields();
+    }else{showToast('err','Error',result.error||'Unknown error');}
+  }catch(e){showToast('err','Connection Error','Could not reach Google Sheet.');}
+  btn.disabled=false; btn.textContent='Submit Entry';
+}
+
+function addToLog(id,data,calc){
+  sessionEntries.push({id,data,calc}); document.getElementById('logSection').style.display='block';
+  const body=document.getElementById('logBody'), tr=document.createElement('tr');
+  tr.innerHTML='<td>'+sessionEntries.length+'</td><td>'+data.item+'</td><td style="font-size:0.68rem">'+data.operation+'</td><td>'+calc.task_time_min+'m</td><td>'+data.quantity+'</td><td>'+calc.time_per_part+'</td>';
+  body.insertBefore(tr,body.firstChild);
+}
+
+function clearTaskFields(){
+  document.getElementById('operation').value=''; document.getElementById('start_time').value='';
+  document.getElementById('end_time').value=''; document.getElementById('quantity').value='';
+  document.getElementById('comments').value=''; document.getElementById('preview').classList.remove('on');
+  document.querySelectorAll('#issueGrid input[type="checkbox"]').forEach(cb=>{cb.checked=cb.value==='None';});
+  document.querySelectorAll('.check-item').forEach(item=>{const box=item.querySelector('input'); item.classList.remove('on'); item.classList.toggle('none-on',box.value==='None');});
+}
+function resetForm(){document.getElementById('name').value=''; document.getElementById('date').value=new Date().toISOString().split('T')[0]; document.getElementById('item').value=''; onItemChange(); clearTaskFields();}
+
+function showToast(type,title,body){const t=document.getElementById('toast'); document.getElementById('toastTitle').textContent=(type==='ok'?'\u2713 ':'\u2717 ')+title; document.getElementById('toastBody').textContent=body; t.className='toast '+type+' show'; if(toastTimer) clearTimeout(toastTimer); toastTimer=setTimeout(hideToast,7000);}
+function hideToast(){document.getElementById('toast').classList.remove('show');}
+function updateClock(){document.getElementById('clock').textContent=new Date().toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});}
+init();
+</script>
+</body>
+</html>
