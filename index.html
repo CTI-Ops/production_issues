@@ -77,6 +77,11 @@
   .toast-body { font-family: 'JetBrains Mono', monospace; font-size: 0.74rem; opacity: 0.85; }
   .toast-x { position: absolute; top: 0.4rem; right: 0.6rem; background: none; border: none; color: inherit; font-size: 1rem; cursor: pointer; opacity: 0.5; padding: 0.2rem; }
   .toast-x:hover { opacity: 1; }
+  .add-new-row { display: flex; gap: 0.4rem; margin-top: 0.4rem; }
+  .add-new-row input { flex: 1; font-size: 0.82rem; padding: 0.45rem 0.65rem; }
+  .add-new-row button { font-family: 'DM Sans', sans-serif; font-size: 0.75rem; font-weight: 600; padding: 0.4rem 0.7rem; border-radius: 6px; cursor: pointer; border: none; flex-shrink: 0; }
+  .add-new-row .btn-add { background: var(--accent); color: #000; }
+  .add-new-row .btn-cancel { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
   .log-section { margin-top: 0.75rem; }
   .log-table { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; }
   .log-table th { text-align: left; padding: 0.4rem 0.5rem; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); border-bottom: 1px solid var(--border); }
@@ -97,15 +102,21 @@
   </div>
   <div class="section"><div class="section-head"><span class="section-num">01</span><span class="section-label">Operator &amp; Date</span></div>
     <div class="section-body"><div class="row c2">
-      <div class="field"><label>Name <span class="req">*</span></label><select id="name"><option value="">Select operator...</option></select></div>
+      <div class="field"><label>Name <span class="req">*</span></label><select id="name" onchange="handleAddNew(this,'operator')"><option value="">Select operator...</option></select>
+        <div class="add-new-row" id="addRow_operator" style="display:none;"><input type="text" id="addInput_operator" placeholder="New operator name..."><button class="btn-add" onclick="confirmAdd('operator')">Add</button><button class="btn-cancel" onclick="cancelAdd('operator')">Cancel</button></div>
+      </div>
       <div class="field"><label>Date <span class="req">*</span></label><input type="date" id="date"></div>
     </div></div>
   </div>
   <div class="section"><div class="section-head"><span class="section-num">02</span><span class="section-label">Item &amp; Operation</span></div>
     <div class="section-body">
       <div class="row c2">
-        <div class="field"><label>Item <span class="req">*</span></label><select id="item" onchange="onItemChange()"><option value="">Select item...</option></select></div>
-        <div class="field"><label>Operation <span class="req">*</span></label><select id="operation" disabled><option value="">Select item first...</option></select></div>
+        <div class="field"><label>Item <span class="req">*</span></label><select id="item" onchange="onItemChange()"><option value="">Select item...</option></select>
+          <div class="add-new-row" id="addRow_item" style="display:none;"><input type="text" id="addInput_item" placeholder="New item name..."><button class="btn-add" onclick="confirmAdd('item')">Add</button><button class="btn-cancel" onclick="cancelAdd('item')">Cancel</button></div>
+        </div>
+        <div class="field"><label>Operation <span class="req">*</span></label><select id="operation" disabled><option value="">Select item first...</option></select>
+          <div class="add-new-row" id="addRow_operation" style="display:none;"><input type="text" id="addInput_operation" placeholder="New operation name..."><button class="btn-add" onclick="confirmAdd('operation')">Add</button><button class="btn-cancel" onclick="cancelAdd('operation')">Cancel</button></div>
+        </div>
       </div>
       <div class="row c2">
         <div class="field"><label>Time Spent on Issue <span class="req">*</span></label>
@@ -170,30 +181,95 @@ async function loadConfig(){
   catch(e){showToast('err','Connection Failed','Could not reach Google Sheet. Check URL and deployment.');}
 }
 
+function getCustom(key){try{return JSON.parse(localStorage.getItem('prodlog_custom_'+key))||[];}catch(e){return[];}}
+function saveCustom(key,arr){localStorage.setItem('prodlog_custom_'+key,JSON.stringify(arr));}
+
 function populateForm(){
   const ns=document.getElementById('name'); ns.innerHTML='<option value="">Select operator...</option>';
-  CONFIG.employees.forEach(emp=>{const o=document.createElement('option'); o.value=emp; o.textContent=emp; ns.appendChild(o);});
+  const allEmployees=[...new Set([...CONFIG.employees,...getCustom('operators')])];
+  allEmployees.forEach(emp=>{const o=document.createElement('option'); o.value=emp; o.textContent=emp; ns.appendChild(o);});
+  ns.appendChild(new Option('+ Add new...','__add_new__'));
+
   const is=document.getElementById('item'); is.innerHTML='<option value="">Select item...</option>';
-  const items=[...new Set(CONFIG.operations.map(op=>op.item))];
-  items.forEach(item=>{const o=document.createElement('option'); o.value=item; o.textContent=item; is.appendChild(o);});
+  const configItems=[...new Set(CONFIG.operations.map(op=>op.item))];
+  const allItems=[...new Set([...configItems,...getCustom('items')])];
+  allItems.forEach(item=>{const o=document.createElement('option'); o.value=item; o.textContent=item; is.appendChild(o);});
+  is.appendChild(new Option('+ Add new...','__add_new__'));
+
   const grid=document.getElementById('issueGrid'); grid.innerHTML='';
   CONFIG.issue_types.forEach(issue=>{
     const lbl=document.createElement('label'); lbl.className='check-item'+(issue==='None'?' none-on':'');
     lbl.innerHTML='<input type="checkbox" value="'+issue+'" '+(issue==='None'?'checked':'')+' onchange="handleIssue(this)"><span>'+issue+'</span>';
     grid.appendChild(lbl);
   });
-  const lastOp=localStorage.getItem('prodlog_operator'); if(lastOp) document.getElementById('name').value=lastOp;
-  const lastItem=localStorage.getItem('prodlog_item'); if(lastItem){document.getElementById('item').value=lastItem; onItemChange();}
+  const lastOp=localStorage.getItem('prodlog_operator'); if(lastOp) ns.value=lastOp;
+  const lastItem=localStorage.getItem('prodlog_item'); if(lastItem){is.value=lastItem; onItemChange();}
 }
 
+function handleAddNew(sel,type){
+  if(sel.value!=='__add_new__') return;
+  sel.value='';
+  document.getElementById('addRow_'+type).style.display='flex';
+  document.getElementById('addInput_'+type).focus();
+}
+
+function confirmAdd(type){
+  const input=document.getElementById('addInput_'+type);
+  const val=input.value.trim();
+  if(!val){showToast('err','Empty','Please enter a name.');return;}
+
+  if(type==='operator'){
+    const custom=getCustom('operators'); if(!custom.includes(val)){custom.push(val); saveCustom('operators',custom);}
+    const sel=document.getElementById('name');
+    const addOpt=sel.querySelector('option[value="__add_new__"]');
+    sel.insertBefore(new Option(val,val),addOpt);
+    sel.value=val;
+  } else if(type==='item'){
+    const custom=getCustom('items'); if(!custom.includes(val)){custom.push(val); saveCustom('items',custom);}
+    const sel=document.getElementById('item');
+    const addOpt=sel.querySelector('option[value="__add_new__"]');
+    sel.insertBefore(new Option(val,val),addOpt);
+    sel.value=val;
+    onItemChange();
+  } else if(type==='operation'){
+    const currentItem=document.getElementById('item').value;
+    if(!currentItem){showToast('err','No Item','Select an item first.');return;}
+    const custom=getCustom('operations');
+    if(!custom.some(o=>o.item===currentItem&&o.operation===val)){custom.push({item:currentItem,operation:val}); saveCustom('operations',custom);}
+    const sel=document.getElementById('operation');
+    const addOpt=sel.querySelector('option[value="__add_new__"]');
+    sel.insertBefore(new Option(val,val),addOpt);
+    sel.value=val;
+    updatePreview();
+  }
+  input.value='';
+  document.getElementById('addRow_'+type).style.display='none';
+}
+
+function cancelAdd(type){
+  document.getElementById('addInput_'+type).value='';
+  document.getElementById('addRow_'+type).style.display='none';
+}
+['operator','item','operation'].forEach(type=>{
+  document.getElementById('addInput_'+type).addEventListener('keydown',e=>{
+    if(e.key==='Enter')confirmAdd(type); if(e.key==='Escape')cancelAdd(type);
+  });
+});
+
 function onItemChange(){
-  const itemVal=document.getElementById('item').value, opSel=document.getElementById('operation');
-  if(!itemVal||!CONFIG){opSel.innerHTML='<option value="">Select item first...</option>'; opSel.disabled=true; updatePreview(); return;}
-  const ops=CONFIG.operations.filter(op=>op.item===itemVal);
+  const sel=document.getElementById('item');
+  handleAddNew(sel,'item');
+  const itemVal=sel.value, opSel=document.getElementById('operation');
+  if(!itemVal||itemVal==='__add_new__'){opSel.innerHTML='<option value="">Select item first...</option>'; opSel.disabled=true; updatePreview(); return;}
+  const configOps=CONFIG?CONFIG.operations.filter(op=>op.item===itemVal):[];
+  const customOps=getCustom('operations').filter(op=>op.item===itemVal);
+  const allOps=[...new Set([...configOps.map(o=>o.operation),...customOps.map(o=>o.operation)])];
   opSel.innerHTML='<option value="">Select operation...</option>';
-  ops.forEach(op=>{const o=document.createElement('option'); o.value=op.operation; o.textContent=op.operation; opSel.appendChild(o);});
+  allOps.forEach(op=>{const o=document.createElement('option'); o.value=op; o.textContent=op; opSel.appendChild(o);});
+  opSel.appendChild(new Option('+ Add new...','__add_new__'));
   opSel.disabled=false;
-  if(ops.length===1){opSel.value=ops[0].operation; updatePreview();}
+  opSel.onchange=function(){handleAddNew(opSel,'operation');updatePreview();};
+  if(allOps.length===1){opSel.value=allOps[0]; updatePreview();}
   localStorage.setItem('prodlog_item',itemVal);
 }
 
