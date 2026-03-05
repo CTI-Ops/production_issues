@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard - Production Log</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0e1117; --bg-card: #161b22; --bg-input: #0d1117; --bg-hover: #1c2333;
+    --border: #30363d; --border-focus: #e0952b; --text: #e6edf3; --text-dim: #8b949e;
+    --text-muted: #484f58; --accent: #e0952b; --accent-hover: #f0a840;
+    --accent-glow: rgba(224,149,43,0.12); --green: #3fb950; --green-bg: rgba(63,185,80,0.08);
+    --red: #f85149; --red-bg: rgba(248,81,73,0.08); --radius: 8px; --radius-lg: 12px;
+  }
+  html { font-size: 15px; overflow-x: hidden; }
+  body { font-family: 'DM Sans', -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.5; overflow-x: hidden; }
+  header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 0.9rem 1.5rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; backdrop-filter: blur(12px); }
+  .logo { display: flex; align-items: center; gap: 0.7rem; }
+  .logo-mark { width: 28px; height: 28px; background: var(--accent); border-radius: 6px; display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.75rem; color: #000; }
+  .logo-text { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; }
+  .header-meta { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--text-muted); }
+  .nav-link { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--accent); text-decoration: none; padding: 0.3rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; transition: all 0.15s; }
+  .nav-link:hover { background: var(--accent-glow); border-color: var(--accent); }
+  main { max-width: 720px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+  .section-head { padding: 0.7rem 1rem; display: flex; align-items: center; gap: 0.6rem; border-bottom: 1px solid var(--border); }
+  .section-num { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; font-weight: 600; color: var(--accent); background: var(--accent-glow); padding: 0.12rem 0.45rem; border-radius: 4px; letter-spacing: 0.04em; }
+  .section-label { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); }
+
+  /* KPI Cards */
+  .dash { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem; margin-bottom: 0.75rem; }
+  .kpi { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 0.8rem 1rem; display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+  .kpi-val { font-family: 'JetBrains Mono', monospace; font-size: 1.4rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1.2; }
+  .kpi-label { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+  .kpi-sub { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-dim); }
+  .kpi.accent .kpi-val { color: var(--accent); }
+  .kpi.green .kpi-val { color: var(--green); }
+  .kpi.red .kpi-val { color: var(--red); }
+
+  /* Detail panels */
+  .dash-detail { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 0.75rem; overflow: hidden; }
+  .dash-bar-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.4rem 1rem; font-size: 0.75rem; }
+  .dash-bar-label { flex-shrink: 0; width: 120px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dash-bar-track { flex: 1; height: 6px; background: var(--bg-input); border-radius: 3px; overflow: hidden; }
+  .dash-bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+  .dash-bar-fill.accent { background: var(--accent); }
+  .dash-bar-fill.green { background: var(--green); }
+  .dash-bar-fill.red { background: var(--red); }
+  .dash-bar-val { flex-shrink: 0; width: 36px; text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-dim); }
+  .dash-empty { padding: 2rem 1rem; text-align: center; color: var(--text-muted); font-size: 0.82rem; }
+
+  /* Recent entries table */
+  .log-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .log-table { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; }
+  .log-table th { text-align: left; padding: 0.4rem 0.5rem; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+  .log-table td { padding: 0.35rem 0.5rem; border-bottom: 1px solid rgba(48,54,61,0.4); color: var(--text-dim); }
+
+  /* Loading / refresh */
+  .dash-status { text-align: center; padding: 0.5rem; font-size: 0.72rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+  .btn-refresh { font-family: 'DM Sans', sans-serif; font-size: 0.75rem; font-weight: 600; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 0.35rem 0.7rem; cursor: pointer; transition: all 0.15s; }
+  .btn-refresh:hover { background: var(--bg-hover); color: var(--text); }
+
+  @media (max-width: 540px) {
+    .dash { grid-template-columns: 1fr 1fr; }
+    header { padding: 0.9rem 1rem; }
+    main { padding: 1rem 0.6rem 4rem; }
+    .dash-bar-label { width: 90px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><div class="logo-mark">PL</div><div class="logo-text">Dashboard</div></div>
+  <div style="display:flex;align-items:center;gap:0.8rem;"><a href="index.html" class="nav-link">Log Entry</a><div class="header-meta" id="clock"></div></div>
+</header>
+<main>
+  <div class="dash-status" id="dashStatus">Loading...</div>
+
+  <div class="dash" id="dashKpis" style="display:none;">
+    <div class="kpi accent"><div class="kpi-val" id="kpiEntries">&mdash;</div><div class="kpi-label">Entries</div><div class="kpi-sub" id="kpiEntriesSub">today</div></div>
+    <div class="kpi"><div class="kpi-val" id="kpiParts">&mdash;</div><div class="kpi-label">Total Parts</div><div class="kpi-sub" id="kpiPartsAvg">&mdash;</div></div>
+    <div class="kpi green"><div class="kpi-val" id="kpiTime">&mdash;</div><div class="kpi-label">Total Time</div><div class="kpi-sub" id="kpiTimePer">&mdash;</div></div>
+    <div class="kpi" id="kpiIssueCard"><div class="kpi-val" id="kpiIssueRate">&mdash;</div><div class="kpi-label">Issue Rate</div><div class="kpi-sub" id="kpiIssueSub">of entries</div></div>
+  </div>
+
+  <div class="dash-detail" id="dashIssues" style="display:none;">
+    <div class="section-head"><span class="section-num">01</span><span class="section-label">Issues Breakdown</span></div>
+    <div id="dashIssuesBars"></div>
+  </div>
+
+  <div class="dash-detail" id="dashItems" style="display:none;">
+    <div class="section-head"><span class="section-num">02</span><span class="section-label">Parts by Item</span></div>
+    <div id="dashItemsBars"></div>
+  </div>
+
+  <div class="dash-detail" id="dashOperators" style="display:none;">
+    <div class="section-head"><span class="section-num">03</span><span class="section-label">Entries by Operator</span></div>
+    <div id="dashOperatorBars"></div>
+  </div>
+
+  <div class="dash-detail" id="dashRecent" style="display:none;">
+    <div class="section-head"><span class="section-num">04</span><span class="section-label">Recent Entries</span></div>
+    <div style="padding:0.5rem;">
+      <div class="log-table-wrap">
+        <table class="log-table">
+          <thead><tr><th>#</th><th>Operator</th><th>Item</th><th>Op</th><th>Time</th><th>Qty</th><th>Issues</th></tr></thead>
+          <tbody id="recentBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:1rem;">
+    <button class="btn-refresh" onclick="loadDashboard()">Refresh</button>
+  </div>
+</main>
+
+<script>
+const DEFAULT_SCRIPT_URL='https://script.google.com/macros/s/AKfycbx1VgLudvC77GFCHQ8M-WOSV-2It8JG0AHmHJfqnLeQsb4pQNetg13QQPPouAFA3GKdfQ/exec';
+const SCRIPT_URL=localStorage.getItem('prodlog_script_url')||DEFAULT_SCRIPT_URL;
+
+function updateClock(){document.getElementById('clock').textContent=new Date().toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});}
+
+async function loadDashboard(){
+  const status=document.getElementById('dashStatus');
+  status.textContent='Loading...'; status.style.display='block';
+  if(!SCRIPT_URL){status.textContent='No script URL configured. Go to Log Entry to set up.'; return;}
+  try{
+    const url=SCRIPT_URL+(SCRIPT_URL.includes('?')?'&':'?')+'action=dashboard';
+    const res=await fetch(url);
+    const d=await res.json();
+    if(d.error) throw new Error(d.error);
+    renderDashboard(d);
+    status.style.display='none';
+  }catch(e){
+    status.textContent='Could not load dashboard data. Ensure the Apps Script supports action=dashboard.';
+  }
+}
+
+function renderDashboard(d){
+  const n=d.total_entries||0;
+  const totalParts=d.total_parts||0;
+  const totalTime=d.total_time_min||0;
+  const entriesWithIssues=d.entries_with_issues||0;
+  const issueCounts=d.issues_breakdown||{};
+  const itemCounts=d.items_breakdown||{};
+  const operatorCounts=d.operators_breakdown||{};
+  const recentEntries=d.recent_entries||[];
+  const period=d.period||'today';
+
+  // Show KPI cards
+  document.getElementById('dashKpis').style.display='grid';
+
+  // Entries
+  document.getElementById('kpiEntries').textContent=n;
+  document.getElementById('kpiEntriesSub').textContent=period;
+
+  // Total parts
+  document.getElementById('kpiParts').textContent=totalParts;
+  document.getElementById('kpiPartsAvg').textContent=n>0?(totalParts/n).toFixed(0)+' avg/entry':'\u2014';
+
+  // Total time
+  document.getElementById('kpiTime').textContent=totalTime+'m';
+  const avgTpp=totalParts>0?(totalTime/totalParts):0;
+  document.getElementById('kpiTimePer').textContent=totalParts>0?avgTpp.toFixed(2)+' min/part':'\u2014';
+
+  // Issue rate
+  const rate=n>0?Math.round((entriesWithIssues/n)*100):0;
+  document.getElementById('kpiIssueRate').textContent=rate+'%';
+  document.getElementById('kpiIssueSub').textContent=entriesWithIssues+' of '+n+' entries';
+  const card=document.getElementById('kpiIssueCard');
+  card.className='kpi'+(rate>50?' red':rate>0?' accent':' green');
+
+  // Issue breakdown
+  renderBars('dashIssues','dashIssuesBars',issueCounts,'red');
+
+  // Items breakdown
+  renderBars('dashItems','dashItemsBars',itemCounts,'accent');
+
+  // Operators breakdown
+  renderBars('dashOperators','dashOperatorBars',operatorCounts,'green');
+
+  // Recent entries table
+  if(recentEntries.length){
+    document.getElementById('dashRecent').style.display='block';
+    const tbody=document.getElementById('recentBody');
+    tbody.innerHTML=recentEntries.map((e,i)=>{
+      const issues=(e.issues||'None').replace(/;/g,', ');
+      return '<tr><td>'+(i+1)+'</td><td>'+esc(e.name||'')+'</td><td>'+esc(e.item||'')+'</td><td style="font-size:0.68rem">'+esc(e.operation||'')+'</td><td>'+(e.task_time_min||'?')+'m</td><td>'+(e.quantity||'')+'</td><td style="font-size:0.68rem">'+esc(issues)+'</td></tr>';
+    }).join('');
+  } else { document.getElementById('dashRecent').style.display='none'; }
+}
+
+function renderBars(panelId,barsId,counts,colorClass){
+  const keys=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
+  const panel=document.getElementById(panelId);
+  const container=document.getElementById(barsId);
+  if(keys.length){
+    panel.style.display='block';
+    const max=counts[keys[0]]||1;
+    container.innerHTML=keys.map(k=>
+      '<div class="dash-bar-row"><span class="dash-bar-label" title="'+esc(k)+'">'+esc(k)+'</span><div class="dash-bar-track"><div class="dash-bar-fill '+colorClass+'" style="width:'+Math.round((counts[k]/max)*100)+'%"></div></div><span class="dash-bar-val">'+counts[k]+'</span></div>'
+    ).join('');
+  } else { panel.style.display='none'; }
+}
+
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+updateClock(); setInterval(updateClock,1000);
+loadDashboard();
+</script>
+</body>
+</html>
