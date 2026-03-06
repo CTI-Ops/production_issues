@@ -185,7 +185,7 @@
 <div class="toast" id="toast"><button class="toast-x" onclick="hideToast()">&times;</button><div class="toast-title" id="toastTitle"></div><div class="toast-body" id="toastBody"></div></div>
 
 <script>
-const DEFAULT_SCRIPT_URL='https://script.google.com/macros/s/AKfycby3Smv16TRvA8-XJJSmfu-pByfEWU2C6r7TCrc1FIcFC5rCtO3C_8XncFUd835PUQ4Z6w/exec';
+const DEFAULT_SCRIPT_URL='https://script.google.com/macros/s/AKfycbydmDOENCR-1UXnLhMGQVe6ohIPTN54qRQd7AUpJN-pzFeGwg5KMSnb3j_LOjoQXbYj9w/exec';
 const storedUrl=localStorage.getItem('prodlog_script_url');
 if(storedUrl && storedUrl!==DEFAULT_SCRIPT_URL){localStorage.removeItem('prodlog_script_url');}
 let CONFIG=null, SCRIPT_URL=DEFAULT_SCRIPT_URL, sessionEntries=[], toastTimer=null;
