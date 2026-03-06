@@ -256,7 +256,6 @@ function handleInitialsKey(key) {
       initialsEntry.submitted = true;
       const ini = initialsEntry.chars.join('');
       submitHighScore(initialsEntry.game, initialsEntry.score, initialsEntry.level, ini);
-      localStorage.setItem('arcade_initials', ini);
       drawInitialsPrompt();
     }
     return true;
