@@ -30,6 +30,7 @@
 
   /* KPI Cards */
   .dash { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-bottom: 0.75rem; }
+  .dash.c4 { grid-template-columns: repeat(4, 1fr); }
   .kpi { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 0.8rem 1rem; display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
   .kpi-val { font-family: 'JetBrains Mono', monospace; font-size: 1.4rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .kpi-label { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
@@ -78,6 +79,7 @@
 
   @media (max-width: 540px) {
     .dash { grid-template-columns: 1fr; }
+    .dash.c4 { grid-template-columns: 1fr 1fr; }
     header { padding: 0.9rem 1rem; }
     main { padding: 1rem 0.6rem 4rem; }
     .dash-bar-label { width: 90px; }
@@ -95,10 +97,11 @@
   <div class="dash-status" id="dashStatus">Loading...</div>
 
   <!-- KPI Row 1: Top Offender, Time Lost, Repeat Issues -->
-  <div class="dash" id="dashKpis" style="display:none;">
+  <div class="dash c4" id="dashKpis" style="display:none;">
     <div class="kpi red"><div class="kpi-val" id="kpiTopOffender">&mdash;</div><div class="kpi-label">Top Offender</div><div class="kpi-sub" id="kpiTopOffenderSub">&mdash;</div></div>
     <div class="kpi accent"><div class="kpi-val" id="kpiTimeLost">&mdash;</div><div class="kpi-label">Time Lost</div><div class="kpi-sub" id="kpiTimeLostSub">&mdash;</div></div>
-    <div class="kpi green"><div class="kpi-val" id="kpiRepeat">&mdash;</div><div class="kpi-label">Repeat Issues</div><div class="kpi-sub" id="kpiRepeatSub">&mdash;</div></div>
+    <div class="kpi green"><div class="kpi-val" id="kpiTotalTime">&mdash;</div><div class="kpi-label">Total Time</div><div class="kpi-sub" id="kpiTotalTimeSub">&mdash;</div></div>
+    <div class="kpi"><div class="kpi-val" id="kpiRepeat">&mdash;</div><div class="kpi-label">Repeat Issues</div><div class="kpi-sub" id="kpiRepeatSub">&mdash;</div></div>
   </div>
 
   <!-- KPI Row 2: Entries, Total Parts, Avg Time/Part -->
@@ -205,6 +208,11 @@ function renderDashboard(d){
   var hrs=totalTime>=60?Math.floor(totalTime/60)+'h '+totalTime%60+'m':totalTime+'m';
   document.getElementById('kpiTimeLost').textContent=hrs;
   document.getElementById('kpiTimeLostSub').textContent=n>0?(totalTime/n).toFixed(0)+' min avg/entry':'no data';
+
+  // Total Time
+  document.getElementById('kpiTotalTime').textContent=totalTime+'m';
+  var avgTpp=totalParts>0?(totalTime/totalParts):0;
+  document.getElementById('kpiTotalTimeSub').textContent=totalParts>0?avgTpp.toFixed(2)+' min/part':'\u2014';
 
   // Repeat Issues (combos with 2+ occurrences)
   var repeatCount=recurringCombos.length;
