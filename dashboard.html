@@ -94,47 +94,39 @@
 <main>
   <div class="dash-status" id="dashStatus">Loading...</div>
 
-  <!-- KPI Row 1: Top Offender, Time Lost, Repeat Issues -->
-  <div class="dash" id="dashKpis" style="display:none;">
-    <div class="kpi red"><div class="kpi-val" id="kpiTopOffender">&mdash;</div><div class="kpi-label">Top Offender</div><div class="kpi-sub" id="kpiTopOffenderSub">&mdash;</div></div>
-    <div class="kpi accent"><div class="kpi-val" id="kpiTimeLost">&mdash;</div><div class="kpi-label">Time Lost</div><div class="kpi-sub" id="kpiTimeLostSub">&mdash;</div></div>
-    <div class="kpi green"><div class="kpi-val" id="kpiRepeat">&mdash;</div><div class="kpi-label">Repeat Issues</div><div class="kpi-sub" id="kpiRepeatSub">&mdash;</div></div>
-  </div>
-
-  <!-- KPI Row 2: Entries, Total Parts, Avg Time/Part -->
-  <div class="dash" id="dashKpis2" style="display:none;">
-    <div class="kpi"><div class="kpi-val" id="kpiEntries">&mdash;</div><div class="kpi-label">Entries</div><div class="kpi-sub" id="kpiEntriesSub">&mdash;</div></div>
-    <div class="kpi"><div class="kpi-val" id="kpiParts">&mdash;</div><div class="kpi-label">Total Parts</div><div class="kpi-sub" id="kpiPartsAvg">&mdash;</div></div>
-    <div class="kpi"><div class="kpi-val" id="kpiAvgTime">&mdash;</div><div class="kpi-label">Avg Time/Part</div><div class="kpi-sub" id="kpiAvgTimeSub">&mdash;</div></div>
-  </div>
-
   <!-- Chart 1: Issues by Item (with time context) -->
   <div class="dash-detail" id="dashIssues" style="display:none;">
     <div class="section-head"><span class="section-num">01</span><span class="section-label">Quantity by Issue</span></div>
     <div id="dashIssuesBars"></div>
   </div>
 
-  <!-- Chart 2: Parts by Item -->
+  <!-- Chart 2: Quantity by Item -->
   <div class="dash-detail" id="dashItems" style="display:none;">
-    <div class="section-head"><span class="section-num">02</span><span class="section-label">Parts by Item</span></div>
+    <div class="section-head"><span class="section-num">02</span><span class="section-label">Quantity by Item</span></div>
     <div id="dashItemsBars"></div>
   </div>
 
-  <!-- Chart 3: Recurring Item + Issue Combos -->
+  <!-- Chart 3: Quantity by Operation -->
+  <div class="dash-detail" id="dashOps" style="display:none;">
+    <div class="section-head"><span class="section-num">03</span><span class="section-label">Quantity by Operation</span></div>
+    <div id="dashOpsBars"></div>
+  </div>
+
+  <!-- Chart 4: Recurring Item + Issue Combos -->
   <div class="dash-detail" id="dashCombos" style="display:none;">
-    <div class="section-head"><span class="section-num">03</span><span class="section-label">Recurring Item + Issue Combos</span></div>
+    <div class="section-head"><span class="section-num">04</span><span class="section-label">Recurring Item + Issue Combos</span></div>
     <div id="dashCombosList"></div>
   </div>
 
-  <!-- Chart 4: Weekly Issue Trend -->
+  <!-- Chart 5: Weekly Issue Trend -->
   <div class="dash-detail" id="dashTrend" style="display:none;">
-    <div class="section-head"><span class="section-num">04</span><span class="section-label">Weekly Issue Trend</span></div>
+    <div class="section-head"><span class="section-num">05</span><span class="section-label">Weekly Issue Trend</span></div>
     <div class="trend-chart" id="dashTrendChart"></div>
   </div>
 
   <!-- Recent Entries -->
   <div class="dash-detail" id="dashRecent" style="display:none;">
-    <div class="section-head"><span class="section-num">05</span><span class="section-label">Recent Entries</span></div>
+    <div class="section-head"><span class="section-num">06</span><span class="section-label">Recent Entries</span></div>
     <div style="padding:0.5rem;">
       <div class="log-table-wrap">
         <table class="log-table">
@@ -182,54 +174,26 @@ async function loadDashboard(){
 }
 
 function renderDashboard(d){
-  const n=d.total_entries||0;
-  const totalParts=d.total_parts||0;
-  const totalTime=d.total_time_min||0;
   const issueCounts=d.issues_breakdown||{};
   const issueTimeCounts=d.issue_time_breakdown||{};
   const itemCounts=d.items_breakdown||{};
   const itemTimeCounts=d.item_time_breakdown||{};
-  const topOffender=d.top_offender||{};
+  const opCounts=d.operations_breakdown||{};
+  const opTimeCounts=d.operation_time_breakdown||{};
   const recurringCombos=d.recurring_combos||[];
   const weeklyTrend=d.weekly_trend||[];
   const recentEntries=d.recent_entries||[];
-  const period=d.period||'all time';
-
-  // === KPI Row 1 ===
-  document.getElementById('dashKpis').style.display='grid';
-
-  // Top Offender
-  document.getElementById('kpiTopOffender').textContent=topOffender.item||'\u2014';
-  document.getElementById('kpiTopOffenderSub').textContent=topOffender.item?(topOffender.count+' parts logged'):'no data';
-
-  // Time Lost
-  var hrs=totalTime>=60?Math.floor(totalTime/60)+'h '+totalTime%60+'m':totalTime+'m';
-  document.getElementById('kpiTimeLost').textContent=hrs;
-  document.getElementById('kpiTimeLostSub').textContent=n>0?(totalTime/n).toFixed(0)+' min avg/entry':'no data';
-
-  // Repeat Issues (combos with 2+ occurrences)
-  var repeatCount=recurringCombos.length;
-  document.getElementById('kpiRepeat').textContent=repeatCount;
-  var repeatTotal=recurringCombos.reduce(function(s,c){return s+c.count;},0);
-  document.getElementById('kpiRepeatSub').textContent=repeatCount>0?(repeatTotal+' total occurrences'):'no recurring combos';
-
-  // === KPI Row 2 ===
-  document.getElementById('dashKpis2').style.display='grid';
-  document.getElementById('kpiEntries').textContent=n;
-  document.getElementById('kpiEntriesSub').textContent=period;
-  document.getElementById('kpiParts').textContent=totalParts;
-  document.getElementById('kpiPartsAvg').textContent=n>0?(totalParts/n).toFixed(0)+' avg/entry':'\u2014';
-  var avgTpp=totalParts>0?(totalTime/totalParts):0;
-  document.getElementById('kpiAvgTime').textContent=totalParts>0?avgTpp.toFixed(2)+'m':'\u2014';
-  document.getElementById('kpiAvgTimeSub').textContent=totalParts>0?(totalTime+'m across '+totalParts+' parts'):'\u2014';
 
   // === Chart 1: Issues by Quantity ===
   renderItemBars('dashIssues','dashIssuesBars',issueCounts,issueTimeCounts,'red');
 
-  // === Chart 2: Parts by Item (with time annotation) ===
+  // === Chart 2: Quantity by Item (with time annotation) ===
   renderItemBars('dashItems','dashItemsBars',itemCounts,itemTimeCounts);
 
-  // === Chart 3: Recurring Combos ===
+  // === Chart 3: Quantity by Operation ===
+  renderItemBars('dashOps','dashOpsBars',opCounts,opTimeCounts,'green');
+
+  // === Chart 4: Recurring Combos ===
   renderCombos(recurringCombos);
 
   // === Chart 4: Weekly Trend ===

@@ -165,8 +165,9 @@ function getDashboardData() {
 
   // Columns (0-indexed): A:# B:Time C:Date D:Item E:Op F:Start G:End H:Qty I:Issues J:Comments K:Time L:Time/Part
   let totalEntries = 0, totalParts = 0, totalTime = 0, entriesWithIssues = 0;
-  const issuesBreakdown = {}, itemsBreakdown = {};
+  const issuesBreakdown = {}, itemsBreakdown = {}, opsBreakdown = {};
   const itemTimeBreakdown = {};   // item -> total minutes
+  const opTimeBreakdown = {};     // operation -> total minutes
   const issueTimeBreakdown = {};  // issue -> total minutes
   const comboCount = {};          // "Item | Issue" -> { count, totalTime, qty }
   const weeklyTrend = {};         // "YYYY-Www" -> { count, totalTime }
@@ -197,6 +198,13 @@ function getDashboardData() {
     if (item) {
       itemsBreakdown[item] = (itemsBreakdown[item] || 0) + qty;
       itemTimeBreakdown[item] = (itemTimeBreakdown[item] || 0) + taskTime;
+    }
+
+    // Operations
+    const op = (row[4] || '').toString().trim();
+    if (op) {
+      opsBreakdown[op] = (opsBreakdown[op] || 0) + qty;
+      opTimeBreakdown[op] = (opTimeBreakdown[op] || 0) + taskTime;
     }
 
     // Recurring combos: Item + Issue type
@@ -275,6 +283,8 @@ function getDashboardData() {
     issue_time_breakdown: issueTimeBreakdown,
     items_breakdown: itemsBreakdown,
     item_time_breakdown: itemTimeBreakdown,
+    operations_breakdown: opsBreakdown,
+    operation_time_breakdown: opTimeBreakdown,
     top_offender: { item: topOffenderItem, count: topOffenderCount },
     recurring_combos: recurringCombos.slice(0, 20),
     weekly_trend: weeklyData,
