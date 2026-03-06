@@ -95,8 +95,8 @@
   .toast-x { position: absolute; top: 0.4rem; right: 0.6rem; background: none; border: none; color: inherit; font-size: 1rem; cursor: pointer; opacity: 0.5; padding: 0.2rem; }
   .toast-x:hover { opacity: 1; }
   .search-select { position: relative; }
-  .search-select input[type="text"] { cursor: pointer; }
-  .search-dropdown { display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 220px; overflow-y: auto; background: var(--bg-card); border: 1px solid var(--border-focus); border-radius: var(--radius); margin-top: 2px; z-index: 60; box-shadow: 0 8px 24px rgba(0,0,0,0.45); }
+  .search-select input[type="text"] { cursor: text; }
+  .search-dropdown { display: none; position: fixed; max-height: 220px; overflow-y: auto; background: var(--bg-card); border: 1px solid var(--border-focus); border-radius: var(--radius); z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.45); }
   .search-dropdown.open { display: block; }
   .search-dropdown .sd-option { padding: 0.5rem 0.75rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; cursor: pointer; transition: background 0.1s; }
   .search-dropdown .sd-option:hover, .search-dropdown .sd-option.active { background: var(--bg-hover); }
@@ -275,9 +275,19 @@ function selectItem(val){
   onItemChange();
 }
 
+function positionDropdown(){
+  const input=document.getElementById('itemSearch');
+  const dd=document.getElementById('itemDropdown');
+  const rect=input.getBoundingClientRect();
+  dd.style.top=(rect.bottom+2)+'px';
+  dd.style.left=rect.left+'px';
+  dd.style.width=rect.width+'px';
+}
+
 function openItemDropdown(){
   document.getElementById('itemSearch').select();
   buildItemDropdown(allItemsList);
+  positionDropdown();
   document.getElementById('itemDropdown').classList.add('open');
 }
 
@@ -286,6 +296,7 @@ function closeItemDropdown(){document.getElementById('itemDropdown').classList.r
 function filterItems(){
   const q=document.getElementById('itemSearch').value;
   buildItemDropdown(allItemsList,q);
+  positionDropdown();
   document.getElementById('itemDropdown').classList.add('open');
   if(!q){document.getElementById('item').value=''; onItemChange();}
 }
