@@ -29,7 +29,7 @@
   .section-label { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); }
 
   /* KPI Cards */
-  .dash { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem; margin-bottom: 0.75rem; }
+  .dash { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-bottom: 0.75rem; }
   .kpi { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 0.8rem 1rem; display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
   .kpi-val { font-family: 'JetBrains Mono', monospace; font-size: 1.4rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1.2; }
   .kpi-label { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
@@ -62,7 +62,7 @@
   .btn-refresh:hover { background: var(--bg-hover); color: var(--text); }
 
   @media (max-width: 540px) {
-    .dash { grid-template-columns: 1fr 1fr; }
+    .dash { grid-template-columns: 1fr; }
     header { padding: 0.9rem 1rem; }
     main { padding: 1rem 0.6rem 4rem; }
     .dash-bar-label { width: 90px; }
@@ -81,7 +81,6 @@
     <div class="kpi accent"><div class="kpi-val" id="kpiEntries">&mdash;</div><div class="kpi-label">Entries</div><div class="kpi-sub" id="kpiEntriesSub">today</div></div>
     <div class="kpi"><div class="kpi-val" id="kpiParts">&mdash;</div><div class="kpi-label">Total Parts</div><div class="kpi-sub" id="kpiPartsAvg">&mdash;</div></div>
     <div class="kpi green"><div class="kpi-val" id="kpiTime">&mdash;</div><div class="kpi-label">Total Time</div><div class="kpi-sub" id="kpiTimePer">&mdash;</div></div>
-    <div class="kpi" id="kpiIssueCard"><div class="kpi-val" id="kpiIssueRate">&mdash;</div><div class="kpi-label">Issue Rate</div><div class="kpi-sub" id="kpiIssueSub">of entries</div></div>
   </div>
 
   <div class="dash-detail" id="dashIssues" style="display:none;">
@@ -112,7 +111,7 @@
 </main>
 
 <script>
-const DEFAULT_SCRIPT_URL='https://script.google.com/macros/s/AKfycbyLEF54JygY8FXhd7woIf-I3hmc9XKUtMjkMpXGs5zsRaMMcx_OG8uPke72s1RdyqIp3w/exec';
+const DEFAULT_SCRIPT_URL='https://script.google.com/macros/s/AKfycbxE6a15_xQnwT6j_L8G2NKL-AYDRr8vaE9C_rt4pTYAVtAwwIFvwKQlTcjBL11oDU63yA/exec';
 const storedUrl=localStorage.getItem('prodlog_script_url');
 if(storedUrl && storedUrl!==DEFAULT_SCRIPT_URL){localStorage.removeItem('prodlog_script_url');}
 const SCRIPT_URL=DEFAULT_SCRIPT_URL;
@@ -139,7 +138,6 @@ function renderDashboard(d){
   const n=d.total_entries||0;
   const totalParts=d.total_parts||0;
   const totalTime=d.total_time_min||0;
-  const entriesWithIssues=d.entries_with_issues||0;
   const issueCounts=d.issues_breakdown||{};
   const itemCounts=d.items_breakdown||{};
   const recentEntries=d.recent_entries||[];
@@ -160,13 +158,6 @@ function renderDashboard(d){
   document.getElementById('kpiTime').textContent=totalTime+'m';
   const avgTpp=totalParts>0?(totalTime/totalParts):0;
   document.getElementById('kpiTimePer').textContent=totalParts>0?avgTpp.toFixed(2)+' min/part':'\u2014';
-
-  // Issue rate
-  const rate=n>0?Math.round((entriesWithIssues/n)*100):0;
-  document.getElementById('kpiIssueRate').textContent=rate+'%';
-  document.getElementById('kpiIssueSub').textContent=entriesWithIssues+' of '+n+' entries';
-  const card=document.getElementById('kpiIssueCard');
-  card.className='kpi'+(rate>50?' red':rate>0?' accent':' green');
 
   // Issue breakdown
   renderBars('dashIssues','dashIssuesBars',issueCounts,'red');
