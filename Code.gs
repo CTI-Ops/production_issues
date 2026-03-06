@@ -181,7 +181,7 @@ function getDashboardData() {
     const hasRealIssue = issues.some(s => s !== 'None');
     if (hasRealIssue) entriesWithIssues++;
     issues.forEach(function(iss) {
-      if (iss && iss !== 'None') issuesBreakdown[iss] = (issuesBreakdown[iss] || 0) + 1;
+      if (iss && iss !== 'None') issuesBreakdown[iss] = (issuesBreakdown[iss] || 0) + qty;
     });
 
     // Items
