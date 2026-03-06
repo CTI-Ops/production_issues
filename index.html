@@ -94,6 +94,14 @@
   .toast-body { font-family: 'JetBrains Mono', monospace; font-size: 0.74rem; opacity: 0.85; }
   .toast-x { position: absolute; top: 0.4rem; right: 0.6rem; background: none; border: none; color: inherit; font-size: 1rem; cursor: pointer; opacity: 0.5; padding: 0.2rem; }
   .toast-x:hover { opacity: 1; }
+  .search-select { position: relative; }
+  .search-select input[type="text"] { cursor: pointer; }
+  .search-dropdown { display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 220px; overflow-y: auto; background: var(--bg-card); border: 1px solid var(--border-focus); border-radius: var(--radius); margin-top: 2px; z-index: 60; box-shadow: 0 8px 24px rgba(0,0,0,0.45); }
+  .search-dropdown.open { display: block; }
+  .search-dropdown .sd-option { padding: 0.5rem 0.75rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; cursor: pointer; transition: background 0.1s; }
+  .search-dropdown .sd-option:hover, .search-dropdown .sd-option.active { background: var(--bg-hover); }
+  .search-dropdown .sd-option.add-new { color: var(--accent); font-weight: 600; border-top: 1px solid var(--border); }
+  .search-dropdown .sd-empty { padding: 0.5rem 0.75rem; font-size: 0.8rem; color: var(--text-muted); font-style: italic; }
   .add-new-row { display: flex; gap: 0.4rem; margin-top: 0.4rem; }
   .add-new-row input { flex: 1; font-size: 0.82rem; padding: 0.45rem 0.65rem; }
   .add-new-row button { font-family: 'DM Sans', sans-serif; font-size: 0.75rem; font-weight: 600; padding: 0.4rem 0.7rem; border-radius: 6px; cursor: pointer; border: none; flex-shrink: 0; }
@@ -138,7 +146,12 @@
   <div class="section"><div class="section-head"><span class="section-num">02</span><span class="section-label">Item &amp; Operation</span></div>
     <div class="section-body">
       <div class="row c2">
-        <div class="field"><label>Item <span class="req">*</span></label><select id="item" onchange="onItemChange()"><option value="">Select item...</option></select>
+        <div class="field"><label>Item <span class="req">*</span></label>
+          <div class="search-select" id="itemSearchWrap">
+            <input type="text" id="itemSearch" placeholder="Select item..." autocomplete="off" onclick="openItemDropdown()" oninput="filterItems()">
+            <input type="hidden" id="item">
+            <div class="search-dropdown" id="itemDropdown"></div>
+          </div>
           <div class="add-new-row" id="addRow_item" style="display:none;"><input type="text" id="addInput_item" placeholder="New item name..."><button class="btn-add" onclick="confirmAdd('item')">Add</button><button class="btn-cancel" onclick="cancelAdd('item')">Cancel</button></div>
         </div>
         <div class="field"><label>Operation <span class="req">*</span></label><select id="operation" disabled><option value="">Select item first...</option></select>
@@ -222,13 +235,12 @@ function pruneStaleCustom(){
   saveCustom('operations',[]);
 }
 
+var allItemsList=[];
 function populateForm(){
   pruneStaleCustom();
-  const is=document.getElementById('item'); is.innerHTML='<option value="">Select item...</option>';
   const configItems=[...new Set(CONFIG.operations.map(op=>op.item))];
-  const allItems=[...new Set([...configItems,...getCustom('items')])];
-  allItems.forEach(item=>{const o=document.createElement('option'); o.value=item; o.textContent=item; is.appendChild(o);});
-  is.appendChild(new Option('+ Add new...','__add_new__'));
+  allItemsList=[...new Set([...configItems,...getCustom('items')])];
+  buildItemDropdown(allItemsList);
 
   const grid=document.getElementById('issueGrid'); grid.innerHTML='';
   const issueTypes=[...CONFIG.issue_types];
@@ -238,8 +250,59 @@ function populateForm(){
     lbl.innerHTML='<input type="checkbox" value="'+issue+'" '+(issue==='None'?'checked':'')+' onchange="handleIssue(this)"><span>'+issue+'</span>';
     grid.appendChild(lbl);
   });
-  const lastItem=localStorage.getItem('prodlog_item'); if(lastItem){is.value=lastItem; onItemChange();}
+  const lastItem=localStorage.getItem('prodlog_item');
+  if(lastItem && allItemsList.includes(lastItem)){document.getElementById('item').value=lastItem; document.getElementById('itemSearch').value=lastItem; onItemChange();}
 }
+
+function buildItemDropdown(items,filter){
+  const dd=document.getElementById('itemDropdown'); dd.innerHTML='';
+  const q=(filter||'').toLowerCase();
+  const filtered=q?items.filter(i=>i.toLowerCase().includes(q)):items;
+  if(filtered.length===0 && q){dd.innerHTML='<div class="sd-empty">No matches</div>';}
+  filtered.forEach(function(item){
+    const div=document.createElement('div'); div.className='sd-option'; div.textContent=item;
+    div.onclick=function(){selectItem(item);}; dd.appendChild(div);
+  });
+  const addDiv=document.createElement('div'); addDiv.className='sd-option add-new'; addDiv.textContent='+ Add new...';
+  addDiv.onclick=function(){closeItemDropdown(); document.getElementById('item').value=''; document.getElementById('itemSearch').value=''; document.getElementById('addRow_item').style.display='flex'; document.getElementById('addInput_item').focus();};
+  dd.appendChild(addDiv);
+}
+
+function selectItem(val){
+  document.getElementById('item').value=val;
+  document.getElementById('itemSearch').value=val;
+  closeItemDropdown();
+  onItemChange();
+}
+
+function openItemDropdown(){
+  document.getElementById('itemSearch').select();
+  buildItemDropdown(allItemsList);
+  document.getElementById('itemDropdown').classList.add('open');
+}
+
+function closeItemDropdown(){document.getElementById('itemDropdown').classList.remove('open');}
+
+function filterItems(){
+  const q=document.getElementById('itemSearch').value;
+  buildItemDropdown(allItemsList,q);
+  document.getElementById('itemDropdown').classList.add('open');
+  if(!q){document.getElementById('item').value=''; onItemChange();}
+}
+
+document.addEventListener('click',function(e){
+  if(!document.getElementById('itemSearchWrap').contains(e.target)){closeItemDropdown();}
+});
+
+document.getElementById('itemSearch').addEventListener('keydown',function(e){
+  const dd=document.getElementById('itemDropdown');
+  const opts=dd.querySelectorAll('.sd-option:not(.add-new)');
+  let idx=-1; opts.forEach(function(o,i){if(o.classList.contains('active'))idx=i;});
+  if(e.key==='ArrowDown'){e.preventDefault(); if(idx<opts.length-1){if(idx>=0)opts[idx].classList.remove('active'); opts[idx+1].classList.add('active'); opts[idx+1].scrollIntoView({block:'nearest'});}}
+  else if(e.key==='ArrowUp'){e.preventDefault(); if(idx>0){opts[idx].classList.remove('active'); opts[idx-1].classList.add('active'); opts[idx-1].scrollIntoView({block:'nearest'});}}
+  else if(e.key==='Enter'){e.preventDefault(); if(idx>=0){opts[idx].click();}else if(opts.length===1){opts[0].click();}}
+  else if(e.key==='Escape'){closeItemDropdown(); e.target.blur();}
+});
 
 function handleAddNew(sel,type){
   if(sel.value!=='__add_new__') return;
@@ -264,11 +327,8 @@ function confirmAdd(type){
 
   if(type==='item'){
     const custom=getCustom('items'); if(!custom.includes(val)){custom.push(val); saveCustom('items',custom);}
-    const sel=document.getElementById('item');
-    const addOpt=sel.querySelector('option[value="__add_new__"]');
-    sel.insertBefore(new Option(val,val),addOpt);
-    sel.value=val;
-    onItemChange();
+    if(!allItemsList.includes(val)) allItemsList.push(val);
+    selectItem(val);
     syncToConfig('item',val);
   } else if(type==='operation'){
     const currentItem=document.getElementById('item').value;
@@ -297,9 +357,7 @@ function cancelAdd(type){
 });
 
 function onItemChange(){
-  const sel=document.getElementById('item');
-  handleAddNew(sel,'item');
-  const itemVal=sel.value, opSel=document.getElementById('operation');
+  const itemVal=document.getElementById('item').value, opSel=document.getElementById('operation');
   if(!itemVal||itemVal==='__add_new__'){opSel.innerHTML='<option value="">Select item first...</option>'; opSel.disabled=true; updatePreview(); return;}
   const configOps=CONFIG?CONFIG.operations.filter(op=>op.item===itemVal):[];
   const customOps=getCustom('operations').filter(op=>op.item===itemVal);
@@ -374,7 +432,7 @@ function clearTaskFields(){
   document.querySelectorAll('#issueGrid input[type="checkbox"]').forEach(cb=>{cb.checked=cb.value==='None';});
   document.querySelectorAll('.check-item').forEach(item=>{const box=item.querySelector('input'); item.classList.remove('on'); item.classList.toggle('none-on',box.value==='None');});
 }
-function resetForm(){document.getElementById('date').value=new Date().toISOString().split('T')[0]; document.getElementById('item').value=''; onItemChange(); clearTaskFields();}
+function resetForm(){document.getElementById('date').value=new Date().toISOString().split('T')[0]; document.getElementById('item').value=''; document.getElementById('itemSearch').value=''; onItemChange(); clearTaskFields();}
 
 function showToast(type,title,body){const t=document.getElementById('toast'); const icon=type==='ok'?'\u2713 ':type==='warn'?'\u26A0 ':'\u2717 '; document.getElementById('toastTitle').textContent=icon+title; document.getElementById('toastBody').textContent=body; t.className='toast '+type+' show'; if(toastTimer) clearTimeout(toastTimer); toastTimer=setTimeout(hideToast,7000);}
 function hideToast(){document.getElementById('toast').classList.remove('show');}
