@@ -118,13 +118,20 @@ const SCRIPT_URL=DEFAULT_SCRIPT_URL;
 
 function updateClock(){document.getElementById('clock').textContent=new Date().toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});}
 
+async function fetchRetry(url,opts,retries=3,delay=1500,onRetry){
+  for(let i=0;i<=retries;i++){
+    try{const r=await fetch(url,opts); if(!r.ok&&i<retries){if(onRetry)onRetry(i+2,retries+1); await new Promise(w=>setTimeout(w,delay*(i+1)));continue;} return r;}
+    catch(e){if(i>=retries)throw e; if(onRetry)onRetry(i+2,retries+1); await new Promise(w=>setTimeout(w,delay*(i+1)));}
+  }
+}
+
 async function loadDashboard(){
   const status=document.getElementById('dashStatus');
   status.textContent='Loading...'; status.style.display='block';
   if(!SCRIPT_URL){status.textContent='No script URL configured. Go to Log Entry to set up.'; return;}
   try{
     const url=SCRIPT_URL+(SCRIPT_URL.includes('?')?'&':'?')+'action=dashboard';
-    const res=await fetch(url);
+    const res=await fetchRetry(url,undefined,3,1500,(attempt,total)=>{status.textContent='Connection issue — retrying (attempt '+attempt+'/'+total+')...';});
     const d=await res.json();
     if(d.error) throw new Error(d.error);
     renderDashboard(d);
