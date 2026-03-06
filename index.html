@@ -89,6 +89,7 @@
   .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
   .toast.ok { background: #0f1d15; border: 1px solid #1a4028; color: #7ee89c; }
   .toast.err { background: #1d0f0f; border: 1px solid #401a1a; color: #ee7e7e; }
+  .toast.warn { background: #1d1a0f; border: 1px solid #40381a; color: #eed87e; }
   .toast-title { font-weight: 600; margin-bottom: 0.15rem; }
   .toast-body { font-family: 'JetBrains Mono', monospace; font-size: 0.74rem; opacity: 0.85; }
   .toast-x { position: absolute; top: 0.4rem; right: 0.6rem; background: none; border: none; color: inherit; font-size: 1rem; cursor: pointer; opacity: 0.5; padding: 0.2rem; }
@@ -188,10 +189,10 @@ function saveUrl(){
   SCRIPT_URL=url; localStorage.setItem('prodlog_script_url',url); loadConfig();
 }
 
-async function fetchRetry(url,opts,retries=3,delay=1500){
+async function fetchRetry(url,opts,retries=3,delay=1500,label='request'){
   for(let i=0;i<=retries;i++){
-    try{const r=await fetch(url,opts); if(!r.ok&&i<retries){await new Promise(w=>setTimeout(w,delay*(i+1)));continue;} return r;}
-    catch(e){if(i>=retries)throw e; await new Promise(w=>setTimeout(w,delay*(i+1)));}
+    try{const r=await fetch(url,opts); if(!r.ok&&i<retries){showToast('warn','Retrying','Connection issue — retrying '+label+' (attempt '+(i+2)+'/'+( retries+1)+')...'); await new Promise(w=>setTimeout(w,delay*(i+1)));continue;} return r;}
+    catch(e){if(i>=retries)throw e; showToast('warn','Retrying','Connection issue — retrying '+label+' (attempt '+(i+2)+'/'+(retries+1)+')...'); await new Promise(w=>setTimeout(w,delay*(i+1)));}
   }
 }
 
@@ -199,7 +200,7 @@ async function loadConfig(){
   const status=document.getElementById('connStatus'), form=document.getElementById('formContainer');
   status.style.display='block'; form.style.display='none'; form.classList.add('form-disabled');
   try{
-    const res=await fetchRetry(SCRIPT_URL); CONFIG=await res.json(); if(CONFIG.error) throw new Error(CONFIG.error);
+    const res=await fetchRetry(SCRIPT_URL,undefined,3,1500,'config load'); CONFIG=await res.json(); if(CONFIG.error) throw new Error(CONFIG.error);
     populateForm(); document.getElementById('configBanner').classList.remove('visible');
     status.style.display='none'; form.style.display='block'; form.classList.remove('form-disabled');
   }catch(e){
@@ -241,7 +242,7 @@ async function syncToConfig(configType, value, item){
   const payload={action:'add_config', config_type:configType, value:value};
   if(item) payload.item=item;
   try{
-    await fetchRetry(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)});
+    await fetchRetry(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)},3,1500,'config sync');
   }catch(e){showToast('err','Sync Warning','Added locally but failed to sync to Google Sheet.');}
 }
 
@@ -339,7 +340,7 @@ async function submitForm(){
   if(tt<=0){showToast('err','Time Error','End time must be after start time.');return;}
   btn.disabled=true; btn.textContent='Submitting...';
   try{
-    const res=await fetchRetry(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(data)});
+    const res=await fetchRetry(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(data)},3,1500,'submission');
     const result=await res.json();
     if(result.success){const c=result.calculated; showToast('ok','Entry #'+result.id+' Saved', data.item+' \u2192 '+data.operation+' \u2014 '+c.task_time_min+'min, '+c.time_per_part+'min/part');
       addToLog(result.id,data,c); clearTaskFields();
@@ -364,7 +365,7 @@ function clearTaskFields(){
 }
 function resetForm(){document.getElementById('date').value=new Date().toISOString().split('T')[0]; document.getElementById('item').value=''; onItemChange(); clearTaskFields();}
 
-function showToast(type,title,body){const t=document.getElementById('toast'); document.getElementById('toastTitle').textContent=(type==='ok'?'\u2713 ':'\u2717 ')+title; document.getElementById('toastBody').textContent=body; t.className='toast '+type+' show'; if(toastTimer) clearTimeout(toastTimer); toastTimer=setTimeout(hideToast,7000);}
+function showToast(type,title,body){const t=document.getElementById('toast'); const icon=type==='ok'?'\u2713 ':type==='warn'?'\u26A0 ':'\u2717 '; document.getElementById('toastTitle').textContent=icon+title; document.getElementById('toastBody').textContent=body; t.className='toast '+type+' show'; if(toastTimer) clearTimeout(toastTimer); toastTimer=setTimeout(hideToast,7000);}
 function hideToast(){document.getElementById('toast').classList.remove('show');}
 function updateClock(){document.getElementById('clock').textContent=new Date().toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});}
 init();
