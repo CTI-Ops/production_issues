@@ -31,7 +31,7 @@
   /* KPI Cards */
   .dash { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-bottom: 0.75rem; }
   .kpi { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 0.8rem 1rem; display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
-  .kpi-val { font-family: 'JetBrains Mono', monospace; font-size: 1.4rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1.2; }
+  .kpi-val { font-family: 'JetBrains Mono', monospace; font-size: 1.4rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .kpi-label { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
   .kpi-sub { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-dim); }
   .kpi.accent .kpi-val { color: var(--accent); }
@@ -47,8 +47,23 @@
   .dash-bar-fill.accent { background: var(--accent); }
   .dash-bar-fill.green { background: var(--green); }
   .dash-bar-fill.red { background: var(--red); }
-  .dash-bar-val { flex-shrink: 0; width: 36px; text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-dim); }
-  .dash-empty { padding: 2rem 1rem; text-align: center; color: var(--text-muted); font-size: 0.82rem; }
+  .dash-bar-val { flex-shrink: 0; width: 50px; text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-dim); }
+
+  /* Combo table */
+  .combo-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.45rem 1rem; border-bottom: 1px solid rgba(48,54,61,0.3); font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; }
+  .combo-row:last-child { border-bottom: none; }
+  .combo-label { flex: 1; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .combo-stat { flex-shrink: 0; text-align: right; color: var(--text-muted); font-size: 0.68rem; min-width: 50px; }
+  .combo-count { flex-shrink: 0; text-align: right; color: var(--red); font-weight: 600; min-width: 30px; font-size: 0.75rem; }
+
+  /* Trend chart */
+  .trend-chart { padding: 0.8rem 1rem; }
+  .trend-bars { display: flex; align-items: flex-end; gap: 2px; height: 80px; }
+  .trend-bar { flex: 1; min-width: 8px; background: var(--accent); border-radius: 2px 2px 0 0; transition: height 0.4s ease; position: relative; cursor: default; }
+  .trend-bar:hover { background: var(--accent-hover); }
+  .trend-bar:hover .trend-tip { display: block; }
+  .trend-tip { display: none; position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; padding: 0.25rem 0.4rem; font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; color: var(--text-dim); white-space: nowrap; z-index: 10; pointer-events: none; }
+  .trend-labels { display: flex; justify-content: space-between; margin-top: 0.3rem; font-family: 'JetBrains Mono', monospace; font-size: 0.58rem; color: var(--text-muted); }
 
   /* Recent entries table */
   .log-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -66,6 +81,8 @@
     header { padding: 0.9rem 1rem; }
     main { padding: 1rem 0.6rem 4rem; }
     .dash-bar-label { width: 90px; }
+    .combo-row { font-size: 0.68rem; }
+    .trend-bars { height: 60px; }
   }
 </style>
 </head>
@@ -77,24 +94,47 @@
 <main>
   <div class="dash-status" id="dashStatus">Loading...</div>
 
+  <!-- KPI Row 1: Top Offender, Time Lost, Repeat Issues -->
   <div class="dash" id="dashKpis" style="display:none;">
-    <div class="kpi accent"><div class="kpi-val" id="kpiEntries">&mdash;</div><div class="kpi-label">Entries</div><div class="kpi-sub" id="kpiEntriesSub">today</div></div>
-    <div class="kpi"><div class="kpi-val" id="kpiParts">&mdash;</div><div class="kpi-label">Total Parts</div><div class="kpi-sub" id="kpiPartsAvg">&mdash;</div></div>
-    <div class="kpi green"><div class="kpi-val" id="kpiTime">&mdash;</div><div class="kpi-label">Total Time</div><div class="kpi-sub" id="kpiTimePer">&mdash;</div></div>
+    <div class="kpi red"><div class="kpi-val" id="kpiTopOffender">&mdash;</div><div class="kpi-label">Top Offender</div><div class="kpi-sub" id="kpiTopOffenderSub">&mdash;</div></div>
+    <div class="kpi accent"><div class="kpi-val" id="kpiTimeLost">&mdash;</div><div class="kpi-label">Time Lost</div><div class="kpi-sub" id="kpiTimeLostSub">&mdash;</div></div>
+    <div class="kpi green"><div class="kpi-val" id="kpiRepeat">&mdash;</div><div class="kpi-label">Repeat Issues</div><div class="kpi-sub" id="kpiRepeatSub">&mdash;</div></div>
   </div>
 
+  <!-- KPI Row 2: Entries, Total Parts, Avg Time/Part -->
+  <div class="dash" id="dashKpis2" style="display:none;">
+    <div class="kpi"><div class="kpi-val" id="kpiEntries">&mdash;</div><div class="kpi-label">Entries</div><div class="kpi-sub" id="kpiEntriesSub">&mdash;</div></div>
+    <div class="kpi"><div class="kpi-val" id="kpiParts">&mdash;</div><div class="kpi-label">Total Parts</div><div class="kpi-sub" id="kpiPartsAvg">&mdash;</div></div>
+    <div class="kpi"><div class="kpi-val" id="kpiAvgTime">&mdash;</div><div class="kpi-label">Avg Time/Part</div><div class="kpi-sub" id="kpiAvgTimeSub">&mdash;</div></div>
+  </div>
+
+  <!-- Chart 1: Issues by Item (with time context) -->
   <div class="dash-detail" id="dashIssues" style="display:none;">
     <div class="section-head"><span class="section-num">01</span><span class="section-label">Quantity by Issue</span></div>
     <div id="dashIssuesBars"></div>
   </div>
 
+  <!-- Chart 2: Parts by Item -->
   <div class="dash-detail" id="dashItems" style="display:none;">
     <div class="section-head"><span class="section-num">02</span><span class="section-label">Parts by Item</span></div>
     <div id="dashItemsBars"></div>
   </div>
 
+  <!-- Chart 3: Recurring Item + Issue Combos -->
+  <div class="dash-detail" id="dashCombos" style="display:none;">
+    <div class="section-head"><span class="section-num">03</span><span class="section-label">Recurring Item + Issue Combos</span></div>
+    <div id="dashCombosList"></div>
+  </div>
+
+  <!-- Chart 4: Weekly Issue Trend -->
+  <div class="dash-detail" id="dashTrend" style="display:none;">
+    <div class="section-head"><span class="section-num">04</span><span class="section-label">Weekly Issue Trend</span></div>
+    <div class="trend-chart" id="dashTrendChart"></div>
+  </div>
+
+  <!-- Recent Entries -->
   <div class="dash-detail" id="dashRecent" style="display:none;">
-    <div class="section-head"><span class="section-num">03</span><span class="section-label">Recent Entries</span></div>
+    <div class="section-head"><span class="section-num">05</span><span class="section-label">Recent Entries</span></div>
     <div style="padding:0.5rem;">
       <div class="log-table-wrap">
         <table class="log-table">
@@ -131,7 +171,7 @@ async function loadDashboard(){
   if(!SCRIPT_URL){status.textContent='No script URL configured. Go to Log Entry to set up.'; return;}
   try{
     const url=SCRIPT_URL+(SCRIPT_URL.includes('?')?'&':'?')+'action=dashboard';
-    const res=await fetchRetry(url,undefined,3,1500,(attempt,total)=>{status.textContent='Connection issue — retrying (attempt '+attempt+'/'+total+')...';});
+    const res=await fetchRetry(url,undefined,3,1500,(attempt,total)=>{status.textContent='Connection issue \u2014 retrying (attempt '+attempt+'/'+total+')...';});
     const d=await res.json();
     if(d.error) throw new Error(d.error);
     renderDashboard(d);
@@ -147,56 +187,122 @@ function renderDashboard(d){
   const totalTime=d.total_time_min||0;
   const issueCounts=d.issues_breakdown||{};
   const itemCounts=d.items_breakdown||{};
+  const itemTimeCounts=d.item_time_breakdown||{};
+  const topOffender=d.top_offender||{};
+  const recurringCombos=d.recurring_combos||[];
+  const weeklyTrend=d.weekly_trend||[];
   const recentEntries=d.recent_entries||[];
-  const period=d.period||'today';
+  const period=d.period||'all time';
 
-  // Show KPI cards
+  // === KPI Row 1 ===
   document.getElementById('dashKpis').style.display='grid';
 
-  // Entries
+  // Top Offender
+  document.getElementById('kpiTopOffender').textContent=topOffender.item||'\u2014';
+  document.getElementById('kpiTopOffenderSub').textContent=topOffender.item?(topOffender.count+' parts logged'):'no data';
+
+  // Time Lost
+  var hrs=totalTime>=60?Math.floor(totalTime/60)+'h '+totalTime%60+'m':totalTime+'m';
+  document.getElementById('kpiTimeLost').textContent=hrs;
+  document.getElementById('kpiTimeLostSub').textContent=n>0?(totalTime/n).toFixed(0)+' min avg/entry':'no data';
+
+  // Repeat Issues (combos with 2+ occurrences)
+  var repeatCount=recurringCombos.length;
+  document.getElementById('kpiRepeat').textContent=repeatCount;
+  var repeatTotal=recurringCombos.reduce(function(s,c){return s+c.count;},0);
+  document.getElementById('kpiRepeatSub').textContent=repeatCount>0?(repeatTotal+' total occurrences'):'no recurring combos';
+
+  // === KPI Row 2 ===
+  document.getElementById('dashKpis2').style.display='grid';
   document.getElementById('kpiEntries').textContent=n;
   document.getElementById('kpiEntriesSub').textContent=period;
-
-  // Total parts
   document.getElementById('kpiParts').textContent=totalParts;
   document.getElementById('kpiPartsAvg').textContent=n>0?(totalParts/n).toFixed(0)+' avg/entry':'\u2014';
+  var avgTpp=totalParts>0?(totalTime/totalParts):0;
+  document.getElementById('kpiAvgTime').textContent=totalParts>0?avgTpp.toFixed(2)+'m':'\u2014';
+  document.getElementById('kpiAvgTimeSub').textContent=totalParts>0?(totalTime+'m across '+totalParts+' parts'):'\u2014';
 
-  // Total time
-  document.getElementById('kpiTime').textContent=totalTime+'m';
-  const avgTpp=totalParts>0?(totalTime/totalParts):0;
-  document.getElementById('kpiTimePer').textContent=totalParts>0?avgTpp.toFixed(2)+' min/part':'\u2014';
-
-  // Issue breakdown
+  // === Chart 1: Issues by Quantity ===
   renderBars('dashIssues','dashIssuesBars',issueCounts,'red');
 
-  // Items breakdown
-  renderBars('dashItems','dashItemsBars',itemCounts,'accent');
+  // === Chart 2: Parts by Item (with time annotation) ===
+  renderItemBars('dashItems','dashItemsBars',itemCounts,itemTimeCounts);
 
-  // Recent entries table
+  // === Chart 3: Recurring Combos ===
+  renderCombos(recurringCombos);
+
+  // === Chart 4: Weekly Trend ===
+  renderTrend(weeklyTrend);
+
+  // === Recent Entries ===
   if(recentEntries.length){
     document.getElementById('dashRecent').style.display='block';
-    const tbody=document.getElementById('recentBody');
-    tbody.innerHTML=recentEntries.map((e,i)=>{
-      const issues=(e.issues||'None').replace(/;/g,', ');
+    var tbody=document.getElementById('recentBody');
+    tbody.innerHTML=recentEntries.map(function(e,i){
+      var issues=(e.issues||'None').replace(/;/g,', ');
       return '<tr><td>'+(i+1)+'</td><td>'+esc(e.item||'')+'</td><td style="font-size:0.68rem">'+esc(e.operation||'')+'</td><td>'+(e.task_time_min||'?')+'m</td><td>'+(e.quantity||'')+'</td><td style="font-size:0.68rem">'+esc(issues)+'</td></tr>';
     }).join('');
   } else { document.getElementById('dashRecent').style.display='none'; }
 }
 
 function renderBars(panelId,barsId,counts,colorClass){
-  const keys=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
-  const panel=document.getElementById(panelId);
-  const container=document.getElementById(barsId);
+  var keys=Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];});
+  var panel=document.getElementById(panelId);
+  var container=document.getElementById(barsId);
   if(keys.length){
     panel.style.display='block';
-    const max=counts[keys[0]]||1;
-    container.innerHTML=keys.map(k=>
-      '<div class="dash-bar-row"><span class="dash-bar-label" title="'+esc(k)+'">'+esc(k)+'</span><div class="dash-bar-track"><div class="dash-bar-fill '+colorClass+'" style="width:'+Math.round((counts[k]/max)*100)+'%"></div></div><span class="dash-bar-val">'+counts[k]+'</span></div>'
-    ).join('');
+    var max=counts[keys[0]]||1;
+    container.innerHTML=keys.map(function(k){
+      return '<div class="dash-bar-row"><span class="dash-bar-label" title="'+esc(k)+'">'+esc(k)+'</span><div class="dash-bar-track"><div class="dash-bar-fill '+colorClass+'" style="width:'+Math.round((counts[k]/max)*100)+'%"></div></div><span class="dash-bar-val">'+counts[k]+'</span></div>';
+    }).join('');
   } else { panel.style.display='none'; }
 }
 
-function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function renderItemBars(panelId,barsId,counts,timeCounts){
+  var keys=Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];});
+  var panel=document.getElementById(panelId);
+  var container=document.getElementById(barsId);
+  if(keys.length){
+    panel.style.display='block';
+    var max=counts[keys[0]]||1;
+    container.innerHTML=keys.map(function(k){
+      var timeStr=timeCounts[k]?(timeCounts[k]+'m'):'';
+      return '<div class="dash-bar-row"><span class="dash-bar-label" title="'+esc(k)+'">'+esc(k)+'</span><div class="dash-bar-track"><div class="dash-bar-fill accent" style="width:'+Math.round((counts[k]/max)*100)+'%"></div></div><span class="dash-bar-val">'+counts[k]+(timeStr?' <span style="color:var(--text-muted);font-size:0.6rem">'+timeStr+'</span>':'')+'</span></div>';
+    }).join('');
+  } else { panel.style.display='none'; }
+}
+
+function renderCombos(combos){
+  var panel=document.getElementById('dashCombos');
+  var container=document.getElementById('dashCombosList');
+  if(combos.length){
+    panel.style.display='block';
+    container.innerHTML=combos.map(function(c){
+      return '<div class="combo-row"><span class="combo-label" title="'+esc(c.combo)+'">'+esc(c.combo)+'</span><span class="combo-stat">'+c.totalTime+'m</span><span class="combo-count">'+c.count+'x</span></div>';
+    }).join('');
+  } else { panel.style.display='none'; }
+}
+
+function renderTrend(weeks){
+  var panel=document.getElementById('dashTrend');
+  var container=document.getElementById('dashTrendChart');
+  if(weeks.length<2){ panel.style.display='none'; return; }
+  panel.style.display='block';
+  var maxCount=Math.max.apply(null,weeks.map(function(w){return w.count;}));
+  if(maxCount===0) maxCount=1;
+
+  var barsHtml='<div class="trend-bars">';
+  weeks.forEach(function(w){
+    var pct=Math.max(2,Math.round((w.count/maxCount)*100));
+    barsHtml+='<div class="trend-bar" style="height:'+pct+'%"><div class="trend-tip">'+esc(w.week)+'<br>'+w.count+' issues, '+w.totalTime+'m</div></div>';
+  });
+  barsHtml+='</div>';
+
+  var labelsHtml='<div class="trend-labels"><span>'+esc(weeks[0].week)+'</span><span>'+esc(weeks[weeks.length-1].week)+'</span></div>';
+  container.innerHTML=barsHtml+labelsHtml;
+}
+
+function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 
 updateClock(); setInterval(updateClock,1000);
 loadDashboard();

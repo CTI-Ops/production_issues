@@ -165,6 +165,9 @@ function getDashboardData() {
   // Columns (0-indexed): A:# B:Time C:Date D:Item E:Op F:Start G:End H:Qty I:Issues J:Comments K:Time L:Time/Part
   let totalEntries = 0, totalParts = 0, totalTime = 0, entriesWithIssues = 0;
   const issuesBreakdown = {}, itemsBreakdown = {};
+  const itemTimeBreakdown = {};   // item -> total minutes
+  const comboCount = {};          // "Item | Issue" -> { count, totalTime, qty }
+  const weeklyTrend = {};         // "YYYY-Www" -> { count, totalTime }
   const recentRows = [];
 
   for (let i = 0; i < data.length; i++) {
@@ -186,7 +189,42 @@ function getDashboardData() {
 
     // Items
     const item = (row[3] || '').toString().trim();
-    if (item) itemsBreakdown[item] = (itemsBreakdown[item] || 0) + qty;
+    if (item) {
+      itemsBreakdown[item] = (itemsBreakdown[item] || 0) + qty;
+      itemTimeBreakdown[item] = (itemTimeBreakdown[item] || 0) + taskTime;
+    }
+
+    // Recurring combos: Item + Issue type
+    if (item && hasRealIssue) {
+      issues.forEach(function(iss) {
+        if (iss && iss !== 'None') {
+          var key = item + ' | ' + iss;
+          if (!comboCount[key]) comboCount[key] = { count: 0, totalTime: 0, qty: 0 };
+          comboCount[key].count++;
+          comboCount[key].totalTime += taskTime;
+          comboCount[key].qty += qty;
+        }
+      });
+    }
+
+    // Weekly trend
+    var dateVal = row[2];
+    var dateStr = '';
+    if (dateVal instanceof Date) {
+      dateStr = Utilities.formatDate(dateVal, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    } else {
+      dateStr = (dateVal || '').toString().trim();
+    }
+    if (dateStr) {
+      var d = new Date(dateStr);
+      if (!isNaN(d.getTime())) {
+        var weekKey = getISOWeek(d);
+        if (!weeklyTrend[weekKey]) weeklyTrend[weekKey] = { count: 0, totalTime: 0, qty: 0 };
+        weeklyTrend[weekKey].count++;
+        weeklyTrend[weekKey].totalTime += taskTime;
+        weeklyTrend[weekKey].qty += qty;
+      }
+    }
 
     recentRows.push({
       item: item,
@@ -196,6 +234,28 @@ function getDashboardData() {
       issues: issueStr
     });
   }
+
+  // Top offender: item with most logged issues (entries)
+  var topOffenderItem = '', topOffenderCount = 0;
+  for (var k in itemsBreakdown) {
+    if (itemsBreakdown[k] > topOffenderCount) { topOffenderItem = k; topOffenderCount = itemsBreakdown[k]; }
+  }
+
+  // Recurring combos: filter to 2+ occurrences, sorted by count desc
+  var recurringCombos = [];
+  for (var ck in comboCount) {
+    if (comboCount[ck].count >= 2) {
+      recurringCombos.push({ combo: ck, count: comboCount[ck].count, totalTime: comboCount[ck].totalTime, qty: comboCount[ck].qty });
+    }
+  }
+  recurringCombos.sort(function(a, b) { return b.count - a.count; });
+
+  // Weekly trend sorted by week
+  var weeklyData = [];
+  for (var wk in weeklyTrend) {
+    weeklyData.push({ week: wk, count: weeklyTrend[wk].count, totalTime: weeklyTrend[wk].totalTime, qty: weeklyTrend[wk].qty });
+  }
+  weeklyData.sort(function(a, b) { return a.week < b.week ? -1 : 1; });
 
   // Return most recent first, cap at 20
   recentRows.reverse();
@@ -208,6 +268,10 @@ function getDashboardData() {
     entries_with_issues: entriesWithIssues,
     issues_breakdown: issuesBreakdown,
     items_breakdown: itemsBreakdown,
+    item_time_breakdown: itemTimeBreakdown,
+    top_offender: { item: topOffenderItem, count: topOffenderCount },
+    recurring_combos: recurringCombos.slice(0, 20),
+    weekly_trend: weeklyData,
     recent_entries: recent,
     period: 'all time'
   };
@@ -220,6 +284,15 @@ function getColumnValues(sheet, col) {
   return sheet.getRange(2, col, lastRow - 1, 1).getValues()
     .map(r => r[0].toString().trim())
     .filter(v => v !== '');
+}
+
+function getISOWeek(date) {
+  var d = new Date(date.getTime());
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+  var week1 = new Date(d.getFullYear(), 0, 4);
+  var weekNum = 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+  return d.getFullYear() + '-W' + (weekNum < 10 ? '0' : '') + weekNum;
 }
 
 function timeToMinutes(t) {

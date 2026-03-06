@@ -122,9 +122,17 @@
   </div>
   <div class="conn-status" id="connStatus"><span class="spinner"></span>Connecting to Google Sheet...</div>
   <div id="formContainer" class="form-disabled" style="display:none;">
-  <div class="section"><div class="section-head"><span class="section-num">01</span><span class="section-label">Date</span></div>
+  <div class="section"><div class="section-head"><span class="section-num">01</span><span class="section-label">Date &amp; Time Spent</span></div>
     <div class="section-body">
-      <div class="field"><label>Date <span class="req">*</span></label><input type="date" id="date"></div>
+      <div class="row c3">
+        <div class="field"><label>Date <span class="req">*</span></label><input type="date" id="date"></div>
+        <div class="field"><label>Started <span class="req">*</span></label><input type="time" id="start_time"></div>
+        <div class="field"><label>Ended <span class="req">*</span></label><input type="time" id="end_time"></div>
+      </div>
+      <div class="preview" id="preview">
+        <div class="prev-row"><span class="prev-label">Total Time</span><span class="prev-val" id="pTime"></span></div>
+        <div class="prev-row"><span class="prev-label">Time/Part</span><span class="prev-val" id="pPart"></span></div>
+      </div>
     </div>
   </div>
   <div class="section"><div class="section-head"><span class="section-num">02</span><span class="section-label">Item &amp; Operation</span></div>
@@ -137,18 +145,12 @@
           <div class="add-new-row" id="addRow_operation" style="display:none;"><input type="text" id="addInput_operation" placeholder="New operation name..."><button class="btn-add" onclick="confirmAdd('operation')">Add</button><button class="btn-cancel" onclick="cancelAdd('operation')">Cancel</button></div>
         </div>
       </div>
-      <div class="row c3">
-        <div class="field"><label>Start Time <span class="req">*</span></label><input type="time" id="start_time"></div>
-        <div class="field"><label>End Time <span class="req">*</span></label><input type="time" id="end_time"></div>
-        <div class="field"><label>Qty with Issues <span class="req">*</span></label><input type="number" id="quantity" min="1" placeholder="25"></div>
-      </div>
-      <div class="preview" id="preview">
-        <div class="prev-row"><span class="prev-label">Total Time</span><span class="prev-val" id="pTime"></span></div>
-        <div class="prev-row"><span class="prev-label">Time/Part</span><span class="prev-val" id="pPart"></span></div>
+      <div class="row">
+        <div class="field"><label>Quantity <span class="req">*</span></label><input type="number" id="quantity" min="1" placeholder="25"></div>
       </div>
     </div>
   </div>
-  <div class="section"><div class="section-head"><span class="section-num">03</span><span class="section-label">Issues Encountered</span></div>
+  <div class="section"><div class="section-head"><span class="section-num">03</span><span class="section-label">Issue Designation</span></div>
     <div class="section-body"><div class="checks" id="issueGrid"></div></div>
   </div>
   <div class="section"><div class="section-head"><span class="section-num">04</span><span class="section-label">Comments</span></div>
@@ -222,7 +224,9 @@ function populateForm(){
   is.appendChild(new Option('+ Add new...','__add_new__'));
 
   const grid=document.getElementById('issueGrid'); grid.innerHTML='';
-  CONFIG.issue_types.forEach(issue=>{
+  const issueTypes=[...CONFIG.issue_types];
+  if(!issueTypes.includes('Software')){const noneIdx=issueTypes.indexOf('None'); if(noneIdx>=0) issueTypes.splice(noneIdx,0,'Software'); else issueTypes.push('Software');}
+  issueTypes.forEach(issue=>{
     const lbl=document.createElement('label'); lbl.className='check-item'+(issue==='None'?' none-on':'');
     lbl.innerHTML='<input type="checkbox" value="'+issue+'" '+(issue==='None'?'checked':'')+' onchange="handleIssue(this)"><span>'+issue+'</span>';
     grid.appendChild(lbl);
@@ -320,9 +324,9 @@ function getTimeSpent(){
 }
 function updatePreview(){
   const p=document.getElementById('preview'), tt=getTimeSpent();
-  const q=parseInt(document.getElementById('quantity').value), op=document.getElementById('operation').value;
-  if(!tt||!q||!op){p.classList.remove('on');return;}
-  if(tt<=0||q<=0){p.classList.remove('on');return;}
+  const q=parseInt(document.getElementById('quantity').value);
+  if(!tt||tt<=0){p.classList.remove('on');return;}
+  if(!q||q<=0){document.getElementById('pTime').textContent=tt+' min'; document.getElementById('pTime').className='prev-val'+(tt>480?' bad':''); document.getElementById('pPart').textContent='\u2014'; p.classList.add('on'); return;}
   const tpp=tt/q, err=tt>480;
   document.getElementById('pTime').textContent=tt+' min'; document.getElementById('pTime').className='prev-val'+(err?' bad':'');
   document.getElementById('pPart').textContent=tpp.toFixed(2)+' min/part'; p.classList.add('on');
