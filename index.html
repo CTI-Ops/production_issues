@@ -122,7 +122,7 @@
   </div>
   <div class="conn-status" id="connStatus"><span class="spinner"></span>Connecting to Google Sheet...</div>
   <div id="formContainer" class="form-disabled" style="display:none;">
-  <div class="section"><div class="section-head"><span class="section-num">01</span><span class="section-label">Date &amp; Time Spent</span></div>
+  <div class="section"><div class="section-head"><span class="section-num">01</span><span class="section-label">Date &amp; Time Spent on Issue</span></div>
     <div class="section-body">
       <div class="row c3">
         <div class="field"><label>Date <span class="req">*</span></label><input type="date" id="date"></div>
@@ -145,8 +145,9 @@
           <div class="add-new-row" id="addRow_operation" style="display:none;"><input type="text" id="addInput_operation" placeholder="New operation name..."><button class="btn-add" onclick="confirmAdd('operation')">Add</button><button class="btn-cancel" onclick="cancelAdd('operation')">Cancel</button></div>
         </div>
       </div>
-      <div class="row">
-        <div class="field"><label>Quantity <span class="req">*</span></label><input type="number" id="quantity" min="1" placeholder="25"></div>
+      <div class="row c2">
+        <div class="field"><label>Quantity Affected by Issue <span class="req">*</span></label><input type="number" id="quantity" min="1" placeholder="25"></div>
+        <div class="field"><label>Job Number</label><input type="text" id="job_number" placeholder="Job #"></div>
       </div>
     </div>
   </div>
@@ -345,7 +346,7 @@ async function submitForm(){
   const data={action:'submit', date:document.getElementById('date').value,
     item:document.getElementById('item').value, operation:document.getElementById('operation').value,
     start_time:document.getElementById('start_time').value, end_time:document.getElementById('end_time').value,
-    quantity:document.getElementById('quantity').value, issues:getIssues(), comments:document.getElementById('comments').value};
+    quantity:document.getElementById('quantity').value, job_number:document.getElementById('job_number').value, issues:getIssues(), comments:document.getElementById('comments').value};
   if(!data.date||!data.item||!data.operation||!data.start_time||!data.end_time||!data.quantity){showToast('err','Missing Fields','Fill in all required fields.');return;}
   if(tt<=0){showToast('err','Time Error','End time must be after start time.');return;}
   btn.disabled=true; btn.textContent='Submitting...';
@@ -368,7 +369,7 @@ function addToLog(id,data,calc){
 
 function clearTaskFields(){
   document.getElementById('operation').value=''; document.getElementById('start_time').value='';
-  document.getElementById('end_time').value=''; document.getElementById('quantity').value='';
+  document.getElementById('end_time').value=''; document.getElementById('quantity').value=''; document.getElementById('job_number').value='';
   document.getElementById('comments').value=''; document.getElementById('preview').classList.remove('on');
   document.querySelectorAll('#issueGrid input[type="checkbox"]').forEach(cb=>{cb.checked=cb.value==='None';});
   document.querySelectorAll('.check-item').forEach(item=>{const box=item.querySelector('input'); item.classList.remove('on'); item.classList.toggle('none-on',box.value==='None');});
