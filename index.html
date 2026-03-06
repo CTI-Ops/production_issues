@@ -162,7 +162,9 @@
 
 <script>
 const DEFAULT_SCRIPT_URL='https://script.google.com/macros/s/AKfycbyLEF54JygY8FXhd7woIf-I3hmc9XKUtMjkMpXGs5zsRaMMcx_OG8uPke72s1RdyqIp3w/exec';
-let CONFIG=null, SCRIPT_URL=localStorage.getItem('prodlog_script_url')||DEFAULT_SCRIPT_URL, sessionEntries=[], toastTimer=null;
+const storedUrl=localStorage.getItem('prodlog_script_url');
+if(storedUrl && storedUrl!==DEFAULT_SCRIPT_URL){localStorage.removeItem('prodlog_script_url');}
+let CONFIG=null, SCRIPT_URL=DEFAULT_SCRIPT_URL, sessionEntries=[], toastTimer=null;
 
 async function init(){
   updateClock(); setInterval(updateClock,1000);

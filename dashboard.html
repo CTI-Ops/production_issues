@@ -113,7 +113,9 @@
 
 <script>
 const DEFAULT_SCRIPT_URL='https://script.google.com/macros/s/AKfycbyLEF54JygY8FXhd7woIf-I3hmc9XKUtMjkMpXGs5zsRaMMcx_OG8uPke72s1RdyqIp3w/exec';
-const SCRIPT_URL=localStorage.getItem('prodlog_script_url')||DEFAULT_SCRIPT_URL;
+const storedUrl=localStorage.getItem('prodlog_script_url');
+if(storedUrl && storedUrl!==DEFAULT_SCRIPT_URL){localStorage.removeItem('prodlog_script_url');}
+const SCRIPT_URL=DEFAULT_SCRIPT_URL;
 
 function updateClock(){document.getElementById('clock').textContent=new Date().toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});}
 
