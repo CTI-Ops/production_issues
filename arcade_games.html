@@ -246,14 +246,22 @@ document.addEventListener('keydown', e => {
 
   if (e.key === 'Escape') {
     e.preventDefault();
-    if (!currentGame) { closeArcade(); return; }
-
     escPressCount++;
+    if (escTimer) clearTimeout(escTimer);
+    escTimer = setTimeout(() => { escPressCount = 0; }, 1200);
+
+    if (escPressCount >= 3) {
+      clearTimeout(escTimer); escPressCount = 0;
+      window.location.href = 'index.html';
+      return;
+    }
+
+    if (!currentGame) return;
+
     if (escPressCount === 1) {
       togglePause();
-      escTimer = setTimeout(() => { escPressCount = 0; }, 600);
-    } else if (escPressCount >= 2) {
-      clearTimeout(escTimer); escPressCount = 0;
+    } else if (escPressCount === 2) {
+      escPressCount = 0; clearTimeout(escTimer);
       if (animFrame) cancelAnimationFrame(animFrame);
       currentGame = null; paused = false;
       document.getElementById('pause-overlay').classList.add('hidden');
@@ -752,10 +760,7 @@ class MissileCommand {
   }
 }
 
-// ── Navigation back to production log ──
-document.addEventListener('keydown', function(e) {
-  if (e.code === 'Space' && !e.repeat && !currentGame) { e.preventDefault(); window.location.href = 'index.html'; }
-});
+// ── Navigation back to production log (middle mouse) ──
 document.addEventListener('mousedown', function(e) {
   if (e.button === 1) { e.preventDefault(); window.location.href = 'index.html'; }
 });
