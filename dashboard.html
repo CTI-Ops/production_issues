@@ -130,7 +130,7 @@ async function loadDashboard(){
     renderDashboard(d);
     status.style.display='none';
   }catch(e){
-    status.textContent='Could not load dashboard data. Ensure the Apps Script supports action=dashboard.';
+    status.textContent='Error: '+(e.message||'Could not load dashboard data. Check Apps Script deployment.');
   }
 }
 

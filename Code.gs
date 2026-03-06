@@ -170,11 +170,13 @@ function getDashboardData() {
 
   for (let i = 0; i < data.length; i++) {
     const row = data[i];
-    const rowDate = row[2] ? row[2].toString() : '';
-    // Match today's date (handles both Date objects and strings)
-    const dateStr = (rowDate instanceof Date)
-      ? Utilities.formatDate(rowDate, Session.getScriptTimeZone(), 'yyyy-MM-dd')
-      : rowDate.substring(0, 10);
+    const rawDate = row[2];
+    let dateStr = '';
+    if (rawDate instanceof Date) {
+      dateStr = Utilities.formatDate(rawDate, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    } else if (rawDate) {
+      dateStr = rawDate.toString().substring(0, 10);
+    }
     if (dateStr !== today) continue;
 
     totalEntries++;
