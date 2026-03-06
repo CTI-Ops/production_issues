@@ -160,7 +160,6 @@ function getDashboardData() {
              issues_breakdown: {}, items_breakdown: {}, recent_entries: [], period: 'all time' };
   }
 
-  const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
   const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
 
   // Columns (0-indexed): A:# B:Time C:Date D:Item E:Op F:Start G:End H:Qty I:Issues J:Comments K:Time L:Time/Part
@@ -170,13 +169,6 @@ function getDashboardData() {
 
   for (let i = 0; i < data.length; i++) {
     const row = data[i];
-    const rowDate = row[2] ? row[2].toString() : '';
-    // Match today's date (handles both Date objects and strings)
-    const dateStr = (rowDate instanceof Date)
-      ? Utilities.formatDate(rowDate, Session.getScriptTimeZone(), 'yyyy-MM-dd')
-      : rowDate.substring(0, 10);
-    if (dateStr !== today) continue;
-
     totalEntries++;
     const qty = parseInt(row[7]) || 0;
     const taskTime = parseInt(row[10]) || 0;
@@ -217,7 +209,7 @@ function getDashboardData() {
     issues_breakdown: issuesBreakdown,
     items_breakdown: itemsBreakdown,
     recent_entries: recent,
-    period: 'today'
+    period: 'all time'
   };
 }
 
