@@ -118,7 +118,7 @@
 </head>
 <body>
 <header>
-  <div class="logo"><div class="logo-mark">PL</div><div class="logo-text">Production Log</div></div>
+  <div class="logo"><div class="logo-mark" id="logoMark">PL</div><div class="logo-text">Production Log</div></div>
   <div style="display:flex;align-items:center;gap:0.8rem;"><a href="dashboard.html" class="nav-link">Dashboard</a><div class="header-meta" id="clock"></div></div>
 </header>
 <main>
@@ -448,6 +448,13 @@ function resetForm(){document.getElementById('date').value=new Date().toISOStrin
 function showToast(type,title,body){const t=document.getElementById('toast'); const icon=type==='ok'?'\u2713 ':type==='warn'?'\u26A0 ':'\u2717 '; document.getElementById('toastTitle').textContent=icon+title; document.getElementById('toastBody').textContent=body; t.className='toast '+type+' show'; if(toastTimer) clearTimeout(toastTimer); toastTimer=setTimeout(hideToast,7000);}
 function hideToast(){document.getElementById('toast').classList.remove('show');}
 function updateClock(){document.getElementById('clock').textContent=new Date().toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});}
+var _eeClicks=0,_eeTimer=null;
+document.getElementById('logoMark').addEventListener('click',function(){
+  _eeClicks++;
+  if(_eeTimer)clearTimeout(_eeTimer);
+  _eeTimer=setTimeout(function(){_eeClicks=0;},1500);
+  if(_eeClicks>=5){_eeClicks=0; clearTimeout(_eeTimer); window.location.href='arcade_games.html';}
+});
 init();
 </script>
 </body>
