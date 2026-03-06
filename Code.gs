@@ -299,13 +299,14 @@ function getDashboardData() {
 }
 
 // ── High Scores (stored on Data Log sheet starting at V100) ──
-// Layout: V=Game, W=Score, X=Level, Y=Date
+// Layout: V=Game, W=Initials, X=Score, Y=Level, Z=Date
 const HS_START_ROW = 100;
-const HS_COL = { GAME: 22, SCORE: 23, LEVEL: 24, DATE: 25 }; // V=22, W=23, X=24, Y=25
+const HS_COL = { GAME: 22, INITIALS: 23, SCORE: 24, LEVEL: 25, DATE: 26 }; // V=22, W=23, X=24, Y=25, Z=26
 
 function handleHighScore(data) {
   const sheet = SS.getSheetByName(LOG_SHEET) || SS.insertSheet(LOG_SHEET);
   const game = (data.game || '').trim();
+  const initials = (data.initials || '???').toUpperCase().substring(0, 3);
   const score = parseInt(data.score) || 0;
   const level = parseInt(data.level) || 1;
   if (!game || score <= 0) return jsonResponse({ success: false, error: 'Invalid score data' });
@@ -314,6 +315,7 @@ function handleHighScore(data) {
   var headerCell = sheet.getRange(HS_START_ROW, HS_COL.GAME).getValue();
   if (!headerCell || headerCell.toString().trim() === '') {
     sheet.getRange(HS_START_ROW, HS_COL.GAME).setValue('Game');
+    sheet.getRange(HS_START_ROW, HS_COL.INITIALS).setValue('Initials');
     sheet.getRange(HS_START_ROW, HS_COL.SCORE).setValue('Score');
     sheet.getRange(HS_START_ROW, HS_COL.LEVEL).setValue('Level');
     sheet.getRange(HS_START_ROW, HS_COL.DATE).setValue('Date');
@@ -331,6 +333,7 @@ function handleHighScore(data) {
   }
 
   sheet.getRange(nextRow, HS_COL.GAME).setValue(game);
+  sheet.getRange(nextRow, HS_COL.INITIALS).setValue(initials);
   sheet.getRange(nextRow, HS_COL.SCORE).setValue(score);
   sheet.getRange(nextRow, HS_COL.LEVEL).setValue(level);
   sheet.getRange(nextRow, HS_COL.DATE).setValue(new Date());
@@ -346,7 +349,7 @@ function getHighScores() {
   if (lastRow < HS_START_ROW + 1) return { scores: [] };
 
   var numRows = lastRow - HS_START_ROW; // skip header
-  var data = sheet.getRange(HS_START_ROW + 1, HS_COL.GAME, numRows, 4).getValues();
+  var data = sheet.getRange(HS_START_ROW + 1, HS_COL.GAME, numRows, 5).getValues();
   var scores = [];
 
   for (var i = 0; i < data.length; i++) {
@@ -354,9 +357,10 @@ function getHighScores() {
     if (!game) continue;
     scores.push({
       game: game,
-      score: parseInt(data[i][1]) || 0,
-      level: parseInt(data[i][2]) || 0,
-      date: data[i][3] instanceof Date ? Utilities.formatDate(data[i][3], Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm') : data[i][3].toString()
+      initials: (data[i][1] || '???').toString().trim(),
+      score: parseInt(data[i][2]) || 0,
+      level: parseInt(data[i][3]) || 0,
+      date: data[i][4] instanceof Date ? Utilities.formatDate(data[i][4], Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm') : data[i][4].toString()
     });
   }
 

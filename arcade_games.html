@@ -191,13 +191,77 @@ let escTimer = null;
 // ── High Score Tracking ──
 const SCRIPT_URL = localStorage.getItem('prodlog_script_url') || 'https://script.google.com/macros/s/AKfycby3Smv16TRvA8-XJJSmfu-pByfEWU2C6r7TCrc1FIcFC5rCtO3C_8XncFUd835PUQ4Z6w/exec';
 
-function submitHighScore(game, score, level) {
+let initialsEntry = null; // active initials entry state
+
+function submitHighScore(game, score, level, initials) {
   if (!score || score <= 0) return;
   fetch(SCRIPT_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ action: 'high_score', game: game, score: score, level: level })
-  }).catch(() => {}); // fire and forget
+    body: JSON.stringify({ action: 'high_score', game: game, score: score, level: level, initials: initials })
+  }).catch(() => {});
+}
+
+function startInitialsEntry(game, score, level) {
+  initialsEntry = { game, score, level, chars: [], submitted: false };
+  drawInitialsPrompt();
+}
+
+function drawInitialsPrompt() {
+  if (!initialsEntry) return;
+  const e = initialsEntry;
+  const display = [];
+  for (let i = 0; i < 3; i++) display.push(e.chars[i] || '_');
+
+  ctx.fillStyle = 'rgba(14,17,23,0.85)';
+  ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'center';
+
+  ctx.font = '700 28px "JetBrains Mono"';
+  ctx.fillStyle = C.red;
+  ctx.fillText('GAME OVER', W / 2, H / 2 - 60);
+
+  ctx.font = '500 16px "JetBrains Mono"';
+  ctx.fillStyle = C.accent;
+  ctx.fillText('Score: ' + e.score, W / 2, H / 2 - 30);
+
+  ctx.font = '500 14px "JetBrains Mono"';
+  ctx.fillStyle = C.dim;
+  ctx.fillText('Enter your initials:', W / 2, H / 2 + 5);
+
+  ctx.font = '700 36px "JetBrains Mono"';
+  ctx.fillStyle = C.text;
+  ctx.fillText(display.join('  '), W / 2, H / 2 + 50);
+
+  if (e.submitted) {
+    ctx.font = '500 13px "JetBrains Mono"';
+    ctx.fillStyle = C.green;
+    ctx.fillText('Score saved!  Press ESC twice to return', W / 2, H / 2 + 80);
+  }
+
+  ctx.textAlign = 'left';
+}
+
+function handleInitialsKey(key) {
+  if (!initialsEntry || initialsEntry.submitted) return false;
+  if (key === 'Backspace') {
+    initialsEntry.chars.pop();
+    drawInitialsPrompt();
+    return true;
+  }
+  if (/^[a-zA-Z0-9]$/.test(key) && initialsEntry.chars.length < 3) {
+    initialsEntry.chars.push(key.toUpperCase());
+    drawInitialsPrompt();
+    if (initialsEntry.chars.length === 3) {
+      initialsEntry.submitted = true;
+      const ini = initialsEntry.chars.join('');
+      submitHighScore(initialsEntry.game, initialsEntry.score, initialsEntry.level, ini);
+      localStorage.setItem('arcade_initials', ini);
+      drawInitialsPrompt();
+    }
+    return true;
+  }
+  return true; // consume all keys during entry
 }
 
 // ── Theme Colors ──
@@ -259,6 +323,13 @@ function gameLoop() {
 document.addEventListener('keydown', e => {
   if (!document.getElementById('arcade-overlay').classList.contains('open')) return;
 
+  // Initials entry intercept (non-Escape keys)
+  if (initialsEntry && !initialsEntry.submitted && e.key !== 'Escape') {
+    e.preventDefault();
+    handleInitialsKey(e.key);
+    return;
+  }
+
   if (e.key === 'Escape') {
     e.preventDefault();
     escPressCount++;
@@ -267,7 +338,20 @@ document.addEventListener('keydown', e => {
 
     if (escPressCount >= 3) {
       clearTimeout(escTimer); escPressCount = 0;
+      initialsEntry = null;
       window.location.href = 'index.html';
+      return;
+    }
+
+    // On initials screen (submitted or not), ESC×2 goes back to menu
+    if (initialsEntry && !currentGame) {
+      if (escPressCount >= 2) {
+        escPressCount = 0; clearTimeout(escTimer);
+        initialsEntry = null;
+        document.getElementById('game-select').classList.remove('hidden');
+        document.getElementById('gameTitle').textContent = 'Select Game';
+        updateHud(0, '—', '—', 'Ready');
+      }
       return;
     }
 
@@ -456,19 +540,9 @@ class Breakout {
 
   gameOver() {
     currentGame = null;
-    submitHighScore('Breakout', this.score, this.level);
     updateHud(this.score, 0, this.level, 'GAME OVER');
     this.draw(ctx);
-    ctx.fillStyle = 'rgba(14,17,23,0.8)';
-    ctx.fillRect(0, 0, W, H);
-    ctx.font = '700 28px "JetBrains Mono"';
-    ctx.fillStyle = C.red;
-    ctx.textAlign = 'center';
-    ctx.fillText('GAME OVER', W / 2, H / 2 - 15);
-    ctx.font = '500 14px "JetBrains Mono"';
-    ctx.fillStyle = C.dim;
-    ctx.fillText('Score: ' + this.score + '  |  Press ESC twice to return', W / 2, H / 2 + 15);
-    ctx.textAlign = 'left';
+    startInitialsEntry('Breakout', this.score, this.level);
   }
 
   draw(ctx) {
@@ -670,19 +744,9 @@ class MissileCommand {
 
   gameOver() {
     currentGame = null;
-    submitHighScore('Missile Command', this.score, this.level);
     updateHud(this.score, 0, this.level, 'ALL CITIES DESTROYED');
     this.draw(ctx);
-    ctx.fillStyle = 'rgba(14,17,23,0.8)';
-    ctx.fillRect(0, 0, W, H);
-    ctx.font = '700 24px "JetBrains Mono"';
-    ctx.fillStyle = C.red;
-    ctx.textAlign = 'center';
-    ctx.fillText('ALL CITIES DESTROYED', W / 2, H / 2 - 15);
-    ctx.font = '500 14px "JetBrains Mono"';
-    ctx.fillStyle = C.dim;
-    ctx.fillText('Score: ' + this.score + '  |  Press ESC twice to return', W / 2, H / 2 + 15);
-    ctx.textAlign = 'left';
+    startInitialsEntry('Missile Command', this.score, this.level);
   }
 
   draw(ctx) {
