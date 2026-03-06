@@ -127,8 +127,8 @@
         <span class="game-title" id="gameTitle">Select Game</span>
       </div>
       <div class="controls">
-        <span><kbd>ESC</kbd> pause/close</span>
-        <span><kbd>MMB</kbd> close</span>
+        <span><kbd>ESC</kbd> pause &middot; <kbd>ESC</kbd>&times;2 menu &middot; <kbd>ESC</kbd>&times;3 tracker</span>
+        <span><kbd>MMB</kbd> tracker</span>
       </div>
       <button class="close-btn" onclick="closeArcade()">Close</button>
     </div>
@@ -165,10 +165,13 @@
   </div>
 </div>
 
-<div style="display:flex;align-items:center;justify-content:center;height:100vh;">
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:1rem;">
   <button onclick="openArcade()" style="font-family:'JetBrains Mono',monospace;font-size:0.9rem;padding:0.8rem 1.6rem;background:#e0952b;color:#000;border:none;border-radius:8px;cursor:pointer;font-weight:700;">
     Open Arcade (for testing)
   </button>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#484f58;text-align:center;line-height:1.6;">
+    <kbd style="background:#21262d;border:1px solid #30363d;border-radius:4px;padding:2px 6px;color:#8b949e;">ESC</kbd> &times;3 &nbsp;or&nbsp; <kbd style="background:#21262d;border:1px solid #30363d;border-radius:4px;padding:2px 6px;color:#8b949e;">Middle Click</kbd> &mdash; return to Production Tracker
+  </div>
 </div>
 
 <script>
@@ -184,6 +187,18 @@ let paused = false;
 let animFrame = null;
 let escPressCount = 0;
 let escTimer = null;
+
+// ── High Score Tracking ──
+const SCRIPT_URL = localStorage.getItem('prodlog_script_url') || 'https://script.google.com/macros/s/AKfycby3Smv16TRvA8-XJJSmfu-pByfEWU2C6r7TCrc1FIcFC5rCtO3C_8XncFUd835PUQ4Z6w/exec';
+
+function submitHighScore(game, score, level) {
+  if (!score || score <= 0) return;
+  fetch(SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'high_score', game: game, score: score, level: level })
+  }).catch(() => {}); // fire and forget
+}
 
 // ── Theme Colors ──
 const C = {
@@ -441,6 +456,7 @@ class Breakout {
 
   gameOver() {
     currentGame = null;
+    submitHighScore('Breakout', this.score, this.level);
     updateHud(this.score, 0, this.level, 'GAME OVER');
     this.draw(ctx);
     ctx.fillStyle = 'rgba(14,17,23,0.8)';
@@ -654,6 +670,7 @@ class MissileCommand {
 
   gameOver() {
     currentGame = null;
+    submitHighScore('Missile Command', this.score, this.level);
     updateHud(this.score, 0, this.level, 'ALL CITIES DESTROYED');
     this.draw(ctx);
     ctx.fillStyle = 'rgba(14,17,23,0.8)';
