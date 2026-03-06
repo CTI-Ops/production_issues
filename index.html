@@ -217,14 +217,8 @@ function getCustom(key){try{return JSON.parse(localStorage.getItem('prodlog_cust
 function saveCustom(key,arr){localStorage.setItem('prodlog_custom_'+key,JSON.stringify(arr));}
 
 function pruneStaleCustom(){
-  const configItems=new Set(CONFIG.operations.map(op=>op.item));
-  const customItems=getCustom('items').filter(i=>!configItems.has(i));
-  saveCustom('items',customItems);
-  const customOps=getCustom('operations').filter(o=>{
-    const match=CONFIG.operations.some(c=>c.item===o.item&&c.operation===o.operation);
-    return !match;
-  });
-  saveCustom('operations',customOps);
+  saveCustom('items',[]);
+  saveCustom('operations',[]);
 }
 
 function populateForm(){
