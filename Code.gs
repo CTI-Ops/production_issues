@@ -298,10 +298,12 @@ function getDashboardData() {
   };
 }
 
-// ── High Scores (stored on Data Log sheet starting at V100) ──
-// Layout: V=Game, W=Initials, X=Score, Y=Level, Z=Date
-const HS_START_ROW = 100;
-const HS_COL = { GAME: 22, INITIALS: 23, SCORE: 24, LEVEL: 25, DATE: 26 }; // V=22, W=23, X=24, Y=25, Z=26
+// ── High Scores (stored on Data Log sheet starting at BZ3000) ──
+// Layout: BZ=Game, CA=Initials, CB=Score, CC=Level, CD=Date
+// Only the top 5 scores per game are kept.
+const HS_START_ROW = 3000;
+const HS_COL = { GAME: 78, INITIALS: 79, SCORE: 80, LEVEL: 81, DATE: 82 }; // BZ=78, CA=79, CB=80, CC=81, CD=82
+const HS_TOP_N = 5;
 
 function handleHighScore(data) {
   const sheet = SS.getSheetByName(LOG_SHEET) || SS.insertSheet(LOG_SHEET);
@@ -311,7 +313,7 @@ function handleHighScore(data) {
   const level = parseInt(data.level) || 1;
   if (!game || score <= 0) return jsonResponse({ success: false, error: 'Invalid score data' });
 
-  // Header row at V100
+  // Header row at BZ3000
   var headerCell = sheet.getRange(HS_START_ROW, HS_COL.GAME).getValue();
   if (!headerCell || headerCell.toString().trim() === '') {
     sheet.getRange(HS_START_ROW, HS_COL.GAME).setValue('Game');
@@ -321,37 +323,75 @@ function handleHighScore(data) {
     sheet.getRange(HS_START_ROW, HS_COL.DATE).setValue('Date');
   }
 
-  // Find next empty row starting from V101
-  var nextRow = HS_START_ROW + 1;
-  var lastRow = sheet.getLastRow();
-  if (lastRow >= nextRow) {
-    var existing = sheet.getRange(nextRow, HS_COL.GAME, lastRow - nextRow + 1, 1).getValues();
-    for (var i = 0; i < existing.length; i++) {
-      if (!existing[i][0] || existing[i][0].toString().trim() === '') { nextRow = nextRow + i; break; }
-      if (i === existing.length - 1) { nextRow = nextRow + existing.length; }
-    }
+  // Read all existing score rows
+  var allScores = readAllHighScores_(sheet);
+
+  // Add the new score
+  allScores.push({ game: game, initials: initials, score: score, level: level, date: new Date() });
+
+  // Group by game, keep only top 5 per game, then flatten back
+  var byGame = {};
+  allScores.forEach(function(s) {
+    if (!byGame[s.game]) byGame[s.game] = [];
+    byGame[s.game].push(s);
+  });
+  var kept = [];
+  for (var g in byGame) {
+    byGame[g].sort(function(a, b) { return b.score - a.score; });
+    kept = kept.concat(byGame[g].slice(0, HS_TOP_N));
   }
 
-  sheet.getRange(nextRow, HS_COL.GAME).setValue(game);
-  sheet.getRange(nextRow, HS_COL.INITIALS).setValue(initials);
-  sheet.getRange(nextRow, HS_COL.SCORE).setValue(score);
-  sheet.getRange(nextRow, HS_COL.LEVEL).setValue(level);
-  sheet.getRange(nextRow, HS_COL.DATE).setValue(new Date());
+  // Rewrite the score rows (clear old data first, then write kept scores)
+  var maxRows = allScores.length + 1; // previous count + 1 for safety
+  if (maxRows > 0) {
+    sheet.getRange(HS_START_ROW + 1, HS_COL.GAME, maxRows, 5).clearContent();
+  }
+  for (var i = 0; i < kept.length; i++) {
+    var row = HS_START_ROW + 1 + i;
+    sheet.getRange(row, HS_COL.GAME).setValue(kept[i].game);
+    sheet.getRange(row, HS_COL.INITIALS).setValue(kept[i].initials);
+    sheet.getRange(row, HS_COL.SCORE).setValue(kept[i].score);
+    sheet.getRange(row, HS_COL.LEVEL).setValue(kept[i].level);
+    sheet.getRange(row, HS_COL.DATE).setValue(kept[i].date);
+  }
 
-  return jsonResponse({ success: true, game: game, score: score, row: nextRow });
+  return jsonResponse({ success: true, game: game, score: score });
 }
 
 function getHighScores() {
   var sheet = SS.getSheetByName(LOG_SHEET);
-  if (!sheet) return { scores: [] };
+  if (!sheet) return { scores_by_game: {} };
 
+  var allScores = readAllHighScores_(sheet);
+
+  // Group by game, return top 5 per game
+  var byGame = {};
+  allScores.forEach(function(s) {
+    if (!byGame[s.game]) byGame[s.game] = [];
+    byGame[s.game].push({
+      game: s.game,
+      initials: s.initials,
+      score: s.score,
+      level: s.level,
+      date: s.date instanceof Date ? Utilities.formatDate(s.date, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm') : s.date.toString()
+    });
+  });
+  for (var g in byGame) {
+    byGame[g].sort(function(a, b) { return b.score - a.score; });
+    byGame[g] = byGame[g].slice(0, HS_TOP_N);
+  }
+
+  return { scores_by_game: byGame };
+}
+
+// Read all high score rows from the sheet (helper)
+function readAllHighScores_(sheet) {
   var lastRow = sheet.getLastRow();
-  if (lastRow < HS_START_ROW + 1) return { scores: [] };
+  if (lastRow < HS_START_ROW + 1) return [];
 
-  var numRows = lastRow - HS_START_ROW; // skip header
+  var numRows = lastRow - HS_START_ROW;
   var data = sheet.getRange(HS_START_ROW + 1, HS_COL.GAME, numRows, 5).getValues();
   var scores = [];
-
   for (var i = 0; i < data.length; i++) {
     var game = (data[i][0] || '').toString().trim();
     if (!game) continue;
@@ -360,22 +400,10 @@ function getHighScores() {
       initials: (data[i][1] || '???').toString().trim(),
       score: parseInt(data[i][2]) || 0,
       level: parseInt(data[i][3]) || 0,
-      date: data[i][4] instanceof Date ? Utilities.formatDate(data[i][4], Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm') : data[i][4].toString()
+      date: data[i][4]
     });
   }
-
-  // Return top 10 per game
-  var byGame = {};
-  scores.forEach(function(s) {
-    if (!byGame[s.game]) byGame[s.game] = [];
-    byGame[s.game].push(s);
-  });
-  for (var g in byGame) {
-    byGame[g].sort(function(a, b) { return b.score - a.score; });
-    byGame[g] = byGame[g].slice(0, 10);
-  }
-
-  return { scores_by_game: byGame };
+  return scores;
 }
 
 // ── Helpers ──
