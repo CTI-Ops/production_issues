@@ -171,6 +171,21 @@
           <div class="game-desc">Defend your cities. Click to intercept.</div>
           <div class="hs-tooltip" id="tooltip-Missile Command"><div class="hs-title">Top 5</div><div class="hs-empty">No scores yet</div></div>
         </div>
+        <div class="game-btn" onclick="startGame('snake')">
+          <div class="game-name">Snake</div>
+          <div class="game-desc">Eat, grow, don't crash. Simple as that.</div>
+          <div class="hs-tooltip" id="tooltip-Snake"><div class="hs-title">Top 5</div><div class="hs-empty">No scores yet</div></div>
+        </div>
+        <div class="game-btn" onclick="startGame('tetris')">
+          <div class="game-name">Tetris</div>
+          <div class="game-desc">Stack blocks. Clear lines. Chase tetrises.</div>
+          <div class="hs-tooltip" id="tooltip-Tetris"><div class="hs-title">Top 5</div><div class="hs-empty">No scores yet</div></div>
+        </div>
+        <div class="game-btn" onclick="startGame('invaders')">
+          <div class="game-name">Space Invaders</div>
+          <div class="game-desc">They march. You shoot. Earth depends on you.</div>
+          <div class="hs-tooltip" id="tooltip-Space Invaders"><div class="hs-title">Top 5</div><div class="hs-empty">No scores yet</div></div>
+        </div>
       </div>
 
       <div id="pause-overlay" class="hidden">
@@ -369,7 +384,7 @@ const C = {
 
 // ── Tooltip updater ──
 function updateTooltips() {
-  ['Breakout', 'Missile Command'].forEach(game => {
+  ['Breakout', 'Missile Command', 'Snake', 'Tetris', 'Space Invaders'].forEach(game => {
     const el = document.getElementById('tooltip-' + game);
     if (!el) return;
     const scores = cachedScores[game];
@@ -408,6 +423,9 @@ function startGame(type) {
   paused = false; escPressCount = 0;
   if (type === 'breakout') { currentGame = new Breakout(); document.getElementById('gameTitle').textContent = 'Breakout'; }
   else if (type === 'missile') { currentGame = new MissileCommand(); document.getElementById('gameTitle').textContent = 'Missile Command'; }
+  else if (type === 'snake') { currentGame = new Snake(); document.getElementById('gameTitle').textContent = 'Snake'; }
+  else if (type === 'tetris') { currentGame = new Tetris(); document.getElementById('gameTitle').textContent = 'Tetris'; }
+  else if (type === 'invaders') { currentGame = new SpaceInvaders(); document.getElementById('gameTitle').textContent = 'Space Invaders'; }
   gameLoop();
 }
 
@@ -1476,6 +1494,1450 @@ class MissileCommand {
       ctx.fillText(ft.text, ft.x, ft.y);
     });
 
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'left';
+  }
+}
+
+// ════════════════════════════════════════
+// SNAKE
+// ════════════════════════════════════════
+class Snake {
+  constructor() {
+    this.cellSize = 20;
+    this.cols = Math.floor(W / this.cellSize); // 32
+    this.rows = Math.floor(H / this.cellSize); // 22
+    this.score = 0;
+    this.level = 1;
+    this.foodEaten = 0;
+    this.particles = [];
+    this.floatingText = [];
+    this.keys = {};
+
+    // Snake body: array of {x,y} grid coords, head first
+    this.segments = [{ x: Math.floor(this.cols / 2), y: Math.floor(this.rows / 2) }];
+    for (let i = 1; i <= 3; i++) this.segments.push({ x: this.segments[0].x - i, y: this.segments[0].y });
+
+    this.direction = { x: 1, y: 0 };
+    this.nextDirection = { x: 1, y: 0 };
+    this.dirQueue = [];
+
+    this.moveTimer = 0;
+    this.moveInterval = 9; // frames between moves (lower = faster)
+    this.growCount = 0;
+
+    // Food
+    this.food = null;
+    this.spawnFood();
+
+    // Power-ups
+    this.powerup = null;
+    this.powerupTimer = 0;
+    this.ghostTimer = 0;
+    this.speedBoostTimer = 0;
+    this.bonusTimer = 0;
+
+    // Walls (from level 3+)
+    this.walls = [];
+
+    // Trail effect
+    this.trail = [];
+
+    updateHud(0, '—', 1, 'Length: 4');
+  }
+
+  spawnFood() {
+    let pos;
+    do {
+      pos = { x: Math.floor(Math.random() * this.cols), y: Math.floor(Math.random() * this.rows) };
+    } while (this.isOccupied(pos.x, pos.y));
+    this.food = pos;
+  }
+
+  spawnPowerup() {
+    const types = ['ghost', 'speed', 'shrink', 'bonus'];
+    const type = types[Math.floor(Math.random() * types.length)];
+    let pos;
+    do {
+      pos = { x: Math.floor(Math.random() * this.cols), y: Math.floor(Math.random() * this.rows) };
+    } while (this.isOccupied(pos.x, pos.y));
+    this.powerup = { ...pos, type };
+    this.powerupTimer = 300; // disappears after 5s
+  }
+
+  isOccupied(x, y) {
+    if (this.segments.some(s => s.x === x && s.y === y)) return true;
+    if (this.food && this.food.x === x && this.food.y === y) return true;
+    if (this.walls.some(w => w.x === x && w.y === y)) return true;
+    return false;
+  }
+
+  buildWalls() {
+    this.walls = [];
+    if (this.level < 3) return;
+    const count = Math.min((this.level - 2) * 6, 30);
+    for (let i = 0; i < count; i++) {
+      let pos;
+      do {
+        pos = { x: Math.floor(Math.random() * this.cols), y: Math.floor(Math.random() * this.rows) };
+        // Keep walls away from center spawn area
+      } while (this.isOccupied(pos.x, pos.y) || (Math.abs(pos.x - this.cols / 2) < 4 && Math.abs(pos.y - this.rows / 2) < 4));
+      this.walls.push(pos);
+    }
+  }
+
+  onKey(key, down) {
+    if (!down) return;
+    const dirMap = {
+      'ArrowUp': { x: 0, y: -1 }, 'w': { x: 0, y: -1 }, 'W': { x: 0, y: -1 },
+      'ArrowDown': { x: 0, y: 1 }, 's': { x: 0, y: 1 }, 'S': { x: 0, y: 1 },
+      'ArrowLeft': { x: -1, y: 0 }, 'a': { x: -1, y: 0 }, 'A': { x: -1, y: 0 },
+      'ArrowRight': { x: 1, y: 0 }, 'd': { x: 1, y: 0 }, 'D': { x: 1, y: 0 },
+    };
+    const d = dirMap[key];
+    if (!d) return;
+    // Prevent reversing into self — check against last queued or current direction
+    const last = this.dirQueue.length > 0 ? this.dirQueue[this.dirQueue.length - 1] : this.direction;
+    if (d.x === -last.x && d.y === -last.y) return;
+    if (d.x === last.x && d.y === last.y) return;
+    if (this.dirQueue.length < 3) this.dirQueue.push(d);
+  }
+
+  update() {
+    // Power-up timers
+    if (this.ghostTimer > 0) this.ghostTimer--;
+    if (this.speedBoostTimer > 0) this.speedBoostTimer--;
+    if (this.powerup) {
+      this.powerupTimer--;
+      if (this.powerupTimer <= 0) this.powerup = null;
+    }
+    if (this.bonusTimer > 0) this.bonusTimer--;
+
+    this.moveTimer++;
+    const interval = this.speedBoostTimer > 0 ? Math.max(2, Math.floor(this.moveInterval / 2)) : this.moveInterval;
+    if (this.moveTimer < interval) return;
+    this.moveTimer = 0;
+
+    // Apply queued direction
+    if (this.dirQueue.length > 0) {
+      this.direction = this.dirQueue.shift();
+    }
+
+    const head = this.segments[0];
+    const newHead = { x: head.x + this.direction.x, y: head.y + this.direction.y };
+
+    // Wrap around edges
+    if (newHead.x < 0) newHead.x = this.cols - 1;
+    if (newHead.x >= this.cols) newHead.x = 0;
+    if (newHead.y < 0) newHead.y = this.rows - 1;
+    if (newHead.y >= this.rows) newHead.y = 0;
+
+    // Wall collision
+    if (this.walls.some(w => w.x === newHead.x && w.y === newHead.y)) {
+      this.die();
+      return;
+    }
+
+    // Self collision (skip if ghost mode)
+    if (this.ghostTimer <= 0 && this.segments.some((s, i) => i > 0 && s.x === newHead.x && s.y === newHead.y)) {
+      this.die();
+      return;
+    }
+
+    // Add trail
+    this.trail.push({ x: head.x * this.cellSize + this.cellSize / 2, y: head.y * this.cellSize + this.cellSize / 2, life: 1 });
+
+    this.segments.unshift(newHead);
+
+    // Check food
+    if (this.food && newHead.x === this.food.x && newHead.y === this.food.y) {
+      const pts = this.speedBoostTimer > 0 ? 30 * this.level : 10 * this.level;
+      this.score += pts;
+      this.foodEaten++;
+      this.growCount += 1;
+      const px = this.food.x * this.cellSize + this.cellSize / 2;
+      const py = this.food.y * this.cellSize + this.cellSize / 2;
+      this.spawnParticles(px, py, C.green, 10);
+      this.floatingText.push({ text: '+' + pts, x: px, y: py, life: 1, color: C.green });
+      this.spawnFood();
+
+      // Maybe spawn powerup
+      if (!this.powerup && Math.random() < 0.18) this.spawnPowerup();
+
+      // Level up every 10 food
+      if (this.foodEaten % 10 === 0) {
+        this.level++;
+        this.moveInterval = Math.max(3, 9 - (this.level - 1));
+        this.floatingText.push({ text: 'LEVEL ' + this.level + '!', x: W / 2, y: H / 2, life: 1.5, color: C.accent });
+        this.buildWalls();
+      }
+    }
+
+    // Check powerup
+    if (this.powerup && newHead.x === this.powerup.x && newHead.y === this.powerup.y) {
+      this.collectPowerup(this.powerup);
+      this.powerup = null;
+    }
+
+    // Remove tail or grow
+    if (this.growCount > 0) {
+      this.growCount--;
+    } else {
+      this.segments.pop();
+    }
+
+    // Update particles
+    this.particles = this.particles.filter(p => {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life -= 0.03;
+      return p.life > 0;
+    });
+    this.floatingText = this.floatingText.filter(ft => {
+      ft.y -= 0.6; ft.life -= 0.018;
+      return ft.life > 0;
+    });
+    this.trail = this.trail.filter(t => { t.life -= 0.06; return t.life > 0; });
+
+    const status = this.ghostTimer > 0 ? 'GHOST MODE' : this.speedBoostTimer > 0 ? 'SPEED BOOST!' : 'Length: ' + this.segments.length;
+    updateHud(this.score, '—', this.level, status);
+  }
+
+  collectPowerup(pu) {
+    const px = pu.x * this.cellSize + this.cellSize / 2;
+    const py = pu.y * this.cellSize + this.cellSize / 2;
+    const labels = { ghost: 'GHOST MODE', speed: 'SPEED BOOST', shrink: 'SHRINK!', bonus: 'BONUS ×5' };
+    const colors = { ghost: C.cyan, speed: C.red, shrink: C.green, bonus: C.accent };
+    this.floatingText.push({ text: labels[pu.type], x: px, y: py, life: 1.2, color: colors[pu.type] });
+    this.spawnParticles(px, py, colors[pu.type], 12);
+
+    if (pu.type === 'ghost') {
+      this.ghostTimer = 300;
+    } else if (pu.type === 'speed') {
+      this.speedBoostTimer = 180;
+    } else if (pu.type === 'shrink') {
+      const remove = Math.min(3, this.segments.length - 2);
+      for (let i = 0; i < remove; i++) this.segments.pop();
+    } else if (pu.type === 'bonus') {
+      this.score += 50 * this.level;
+      this.bonusTimer = 60;
+    }
+  }
+
+  die() {
+    const head = this.segments[0];
+    const px = head.x * this.cellSize + this.cellSize / 2;
+    const py = head.y * this.cellSize + this.cellSize / 2;
+    this.spawnParticles(px, py, C.red, 25);
+    this.segments.forEach(s => {
+      this.spawnParticles(s.x * this.cellSize + this.cellSize / 2, s.y * this.cellSize + this.cellSize / 2, C.accent, 3);
+    });
+    this.gameOver();
+  }
+
+  gameOver() {
+    currentGame = null;
+    updateHud(this.score, '—', this.level, 'GAME OVER');
+    this.draw(ctx);
+    startInitialsEntry('Snake', this.score, this.level);
+  }
+
+  spawnParticles(x, y, color, count) {
+    for (let i = 0; i < count; i++) {
+      this.particles.push({
+        x, y,
+        vx: (Math.random() - 0.5) * 6,
+        vy: (Math.random() - 0.5) * 6,
+        life: 1, color, size: 2 + Math.random() * 3
+      });
+    }
+  }
+
+  draw(ctx) {
+    ctx.fillStyle = C.bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Grid lines (subtle)
+    ctx.strokeStyle = 'rgba(48,54,61,0.3)';
+    ctx.lineWidth = 0.5;
+    for (let x = 0; x <= W; x += this.cellSize) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let y = 0; y <= H; y += this.cellSize) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+
+    // Walls
+    this.walls.forEach(w => {
+      ctx.fillStyle = C.border;
+      ctx.fillRect(w.x * this.cellSize + 1, w.y * this.cellSize + 1, this.cellSize - 2, this.cellSize - 2);
+      ctx.fillStyle = C.muted;
+      ctx.fillRect(w.x * this.cellSize + 3, w.y * this.cellSize + 3, this.cellSize - 6, this.cellSize - 6);
+    });
+
+    // Trail
+    this.trail.forEach(t => {
+      ctx.globalAlpha = t.life * 0.3;
+      ctx.fillStyle = this.ghostTimer > 0 ? C.cyan : C.accentDim;
+      ctx.fillRect(t.x - 3, t.y - 3, 6, 6);
+    });
+    ctx.globalAlpha = 1;
+
+    // Snake body
+    const cs = this.cellSize;
+    this.segments.forEach((s, i) => {
+      const x = s.x * cs + 1, y = s.y * cs + 1, sz = cs - 2;
+      if (i === 0) {
+        // Head
+        ctx.fillStyle = this.ghostTimer > 0 ? C.cyan : C.accent;
+        ctx.fillRect(x, y, sz, sz);
+        // Eyes
+        ctx.fillStyle = C.bg;
+        const eyeSize = 3;
+        if (this.direction.x === 1) { ctx.fillRect(x + sz - 6, y + 4, eyeSize, eyeSize); ctx.fillRect(x + sz - 6, y + sz - 7, eyeSize, eyeSize); }
+        else if (this.direction.x === -1) { ctx.fillRect(x + 3, y + 4, eyeSize, eyeSize); ctx.fillRect(x + 3, y + sz - 7, eyeSize, eyeSize); }
+        else if (this.direction.y === -1) { ctx.fillRect(x + 4, y + 3, eyeSize, eyeSize); ctx.fillRect(x + sz - 7, y + 3, eyeSize, eyeSize); }
+        else { ctx.fillRect(x + 4, y + sz - 6, eyeSize, eyeSize); ctx.fillRect(x + sz - 7, y + sz - 6, eyeSize, eyeSize); }
+      } else {
+        const brightness = 1 - (i / this.segments.length) * 0.5;
+        ctx.globalAlpha = this.ghostTimer > 0 ? 0.4 : brightness;
+        ctx.fillStyle = this.ghostTimer > 0 ? C.cyan : C.accent;
+        ctx.fillRect(x + 1, y + 1, sz - 2, sz - 2);
+        ctx.globalAlpha = 1;
+      }
+    });
+
+    // Food
+    if (this.food) {
+      const fx = this.food.x * cs + cs / 2, fy = this.food.y * cs + cs / 2;
+      const pulse = Math.sin(Date.now() * 0.006) * 2;
+      ctx.fillStyle = C.green;
+      ctx.beginPath();
+      ctx.arc(fx, fy, 6 + pulse, 0, Math.PI * 2);
+      ctx.fill();
+      // Glow
+      ctx.globalAlpha = 0.2;
+      ctx.beginPath();
+      ctx.arc(fx, fy, 10 + pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // Powerup
+    if (this.powerup) {
+      const colors = { ghost: C.cyan, speed: C.red, shrink: C.green, bonus: C.accent };
+      const symbols = { ghost: '◇', speed: '»', shrink: '−', bonus: '★' };
+      const px = this.powerup.x * cs + cs / 2, py = this.powerup.y * cs + cs / 2;
+      const pulse = Math.sin(Date.now() * 0.008) * 2;
+      ctx.fillStyle = colors[this.powerup.type];
+      ctx.globalAlpha = 0.3;
+      ctx.beginPath(); ctx.arc(px, py, 12 + pulse, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.font = '700 14px "JetBrains Mono"';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(symbols[this.powerup.type], px, py);
+      ctx.textBaseline = 'alphabetic';
+      ctx.textAlign = 'left';
+    }
+
+    // Particles
+    this.particles.forEach(p => {
+      ctx.globalAlpha = p.life;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    });
+    ctx.globalAlpha = 1;
+
+    // Floating text
+    this.floatingText.forEach(ft => {
+      ctx.globalAlpha = ft.life;
+      ctx.fillStyle = ft.color;
+      ctx.font = '700 14px "JetBrains Mono"';
+      ctx.textAlign = 'center';
+      ctx.fillText(ft.text, ft.x, ft.y);
+    });
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'left';
+  }
+}
+
+// ════════════════════════════════════════
+// TETRIS
+// ════════════════════════════════════════
+class Tetris {
+  constructor() {
+    this.boardW = 10;
+    this.boardH = 20;
+    this.cellSize = 20;
+    this.offsetX = (W - this.boardW * this.cellSize) / 2;
+    this.offsetY = (H - this.boardH * this.cellSize) / 2;
+    this.board = Array.from({ length: this.boardH }, () => Array(this.boardW).fill(null));
+    this.score = 0;
+    this.level = 1;
+    this.linesCleared = 0;
+    this.combo = 0;
+    this.particles = [];
+    this.floatingText = [];
+    this.keys = {};
+
+    this.pieces = {
+      I: { shape: [[0,0],[1,0],[2,0],[3,0]], color: C.cyan },
+      O: { shape: [[0,0],[1,0],[0,1],[1,1]], color: C.accent },
+      T: { shape: [[0,0],[1,0],[2,0],[1,1]], color: '#b392f0' },
+      S: { shape: [[1,0],[2,0],[0,1],[1,1]], color: C.green },
+      Z: { shape: [[0,0],[1,0],[1,1],[2,1]], color: C.red },
+      J: { shape: [[0,0],[0,1],[1,1],[2,1]], color: C.cyan },
+      L: { shape: [[2,0],[0,1],[1,1],[2,1]], color: '#f0a840' },
+    };
+    this.pieceNames = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
+    this.bag = [];
+
+    this.current = null;
+    this.currentX = 0;
+    this.currentY = 0;
+    this.currentRotation = 0;
+    this.next = null;
+    this.held = null;
+    this.canHold = true;
+
+    this.dropTimer = 0;
+    this.dropInterval = 45;
+    this.lockDelay = 0;
+    this.lockDelayMax = 30;
+    this.softDropping = false;
+    this.gameActive = true;
+
+    // DAS (Delayed Auto Shift)
+    this.dasTimer = 0;
+    this.dasDelay = 10;
+    this.dasDir = 0;
+    this.arrTimer = 0;
+    this.arrDelay = 2;
+
+    // Line clear animation
+    this.clearingLines = null;
+    this.clearAnimTimer = 0;
+    this.clearAnimDuration = 15;
+
+    this.spawnNext();
+    this.spawnPiece();
+    updateHud(0, 0, 1, 'Lines: 0');
+  }
+
+  spawnNext() {
+    if (this.bag.length === 0) {
+      this.bag = [...this.pieceNames];
+      // Fisher-Yates shuffle
+      for (let i = this.bag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [this.bag[i], this.bag[j]] = [this.bag[j], this.bag[i]];
+      }
+    }
+    const name = this.bag.pop();
+    this.next = { name, ...this.pieces[name], rotation: 0 };
+  }
+
+  spawnPiece() {
+    if (!this.next) this.spawnNext();
+    this.current = this.next;
+    this.currentRotation = 0;
+    this.currentX = Math.floor((this.boardW - 3) / 2);
+    this.currentY = 0;
+    this.lockDelay = 0;
+    this.canHold = true;
+    this.spawnNext();
+
+    // Check if spawn position is blocked
+    if (this.collides(this.getBlocks(), this.currentX, this.currentY)) {
+      this.gameActive = false;
+      this.gameOver();
+    }
+  }
+
+  getBlocks(rotation) {
+    const r = rotation !== undefined ? rotation : this.currentRotation;
+    let blocks = this.current.shape.map(b => [...b]);
+    for (let i = 0; i < r; i++) {
+      blocks = blocks.map(([x, y]) => [-y, x]);
+    }
+    // Normalize to positive coords
+    const minX = Math.min(...blocks.map(b => b[0]));
+    const minY = Math.min(...blocks.map(b => b[1]));
+    return blocks.map(([x, y]) => [x - minX, y - minY]);
+  }
+
+  collides(blocks, ox, oy) {
+    return blocks.some(([bx, by]) => {
+      const x = ox + bx, y = oy + by;
+      if (x < 0 || x >= this.boardW || y >= this.boardH) return true;
+      if (y >= 0 && this.board[y][x]) return true;
+      return false;
+    });
+  }
+
+  getGhostY() {
+    const blocks = this.getBlocks();
+    let gy = this.currentY;
+    while (!this.collides(blocks, this.currentX, gy + 1)) gy++;
+    return gy;
+  }
+
+  rotate(dir) {
+    const newRot = (this.currentRotation + dir + 4) % 4;
+    const blocks = this.getBlocks(newRot);
+    // Wall kick offsets
+    const kicks = [[0, 0], [-1, 0], [1, 0], [0, -1], [-2, 0], [2, 0], [-1, -1], [1, -1]];
+    for (const [kx, ky] of kicks) {
+      if (!this.collides(blocks, this.currentX + kx, this.currentY + ky)) {
+        this.currentX += kx;
+        this.currentY += ky;
+        this.currentRotation = newRot;
+        if (this.lockDelay > 0) this.lockDelay = Math.max(this.lockDelay - 10, 0);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  move(dx) {
+    const blocks = this.getBlocks();
+    if (!this.collides(blocks, this.currentX + dx, this.currentY)) {
+      this.currentX += dx;
+      if (this.lockDelay > 0) this.lockDelay = Math.max(this.lockDelay - 5, 0);
+      return true;
+    }
+    return false;
+  }
+
+  hardDrop() {
+    const blocks = this.getBlocks();
+    let dropped = 0;
+    while (!this.collides(blocks, this.currentX, this.currentY + 1)) {
+      this.currentY++;
+      dropped++;
+    }
+    this.score += dropped * 2;
+    this.lockPiece();
+  }
+
+  lockPiece() {
+    const blocks = this.getBlocks();
+    blocks.forEach(([bx, by]) => {
+      const x = this.currentX + bx, y = this.currentY + by;
+      if (y >= 0 && y < this.boardH && x >= 0 && x < this.boardW) {
+        this.board[y][x] = this.current.color;
+      }
+    });
+
+    // Particles at lock position
+    blocks.forEach(([bx, by]) => {
+      const px = this.offsetX + (this.currentX + bx) * this.cellSize + this.cellSize / 2;
+      const py = this.offsetY + (this.currentY + by) * this.cellSize + this.cellSize / 2;
+      this.spawnParticles(px, py, this.current.color, 3);
+    });
+
+    this.checkLines();
+    if (this.gameActive) this.spawnPiece();
+  }
+
+  checkLines() {
+    const fullLines = [];
+    for (let y = 0; y < this.boardH; y++) {
+      if (this.board[y].every(cell => cell !== null)) fullLines.push(y);
+    }
+    if (fullLines.length === 0) {
+      this.combo = 0;
+      return;
+    }
+
+    // Start clear animation
+    this.clearingLines = fullLines;
+    this.clearAnimTimer = this.clearAnimDuration;
+
+    this.combo++;
+    const basePoints = [0, 100, 300, 500, 800][fullLines.length] || 800;
+    const points = basePoints * this.level + (this.combo > 1 ? 50 * this.combo * this.level : 0);
+    this.score += points;
+    this.linesCleared += fullLines.length;
+
+    // Floating text
+    const labels = ['', 'Single', 'Double', 'Triple', 'TETRIS!'];
+    const label = labels[Math.min(fullLines.length, 4)];
+    const midY = this.offsetY + fullLines[Math.floor(fullLines.length / 2)] * this.cellSize;
+    this.floatingText.push({ text: label + ' +' + points, x: W / 2, y: midY, life: 1.5, color: fullLines.length === 4 ? C.accent : C.green });
+    if (this.combo > 1) {
+      this.floatingText.push({ text: 'COMBO ×' + this.combo, x: W / 2, y: midY + 20, life: 1.2, color: C.cyan });
+    }
+
+    // Particles for cleared lines
+    fullLines.forEach(ly => {
+      for (let x = 0; x < this.boardW; x++) {
+        const px = this.offsetX + x * this.cellSize + this.cellSize / 2;
+        const py = this.offsetY + ly * this.cellSize + this.cellSize / 2;
+        this.spawnParticles(px, py, this.board[ly][x] || C.text, 3);
+      }
+    });
+
+    // Remove lines
+    fullLines.sort((a, b) => b - a).forEach(y => {
+      this.board.splice(y, 1);
+      this.board.unshift(Array(this.boardW).fill(null));
+    });
+
+    // Level up
+    const newLevel = Math.floor(this.linesCleared / 10) + 1;
+    if (newLevel > this.level) {
+      this.level = newLevel;
+      this.dropInterval = Math.max(3, 45 - (this.level - 1) * 4);
+      this.floatingText.push({ text: 'LEVEL ' + this.level + '!', x: W / 2, y: H / 2, life: 1.5, color: C.accent });
+    }
+  }
+
+  holdPiece() {
+    if (!this.canHold) return;
+    this.canHold = false;
+    if (this.held) {
+      const tmp = this.held;
+      this.held = { name: this.current.name, ...this.pieces[this.current.name], rotation: 0 };
+      this.current = tmp;
+      this.currentRotation = 0;
+      this.currentX = Math.floor((this.boardW - 3) / 2);
+      this.currentY = 0;
+      this.lockDelay = 0;
+    } else {
+      this.held = { name: this.current.name, ...this.pieces[this.current.name], rotation: 0 };
+      this.spawnPiece();
+    }
+  }
+
+  onKey(key, down) {
+    this.keys[key] = down;
+    if (!down || !this.gameActive) {
+      if (!down) {
+        if (key === 'ArrowLeft' || key === 'ArrowRight' || key === 'a' || key === 'd') {
+          this.dasDir = 0; this.dasTimer = 0; this.arrTimer = 0;
+        }
+        if (key === 'ArrowDown' || key === 's') this.softDropping = false;
+      }
+      return;
+    }
+    if (key === 'ArrowLeft' || key === 'a') { this.move(-1); this.dasDir = -1; this.dasTimer = 0; this.arrTimer = 0; }
+    else if (key === 'ArrowRight' || key === 'd') { this.move(1); this.dasDir = 1; this.dasTimer = 0; this.arrTimer = 0; }
+    else if (key === 'ArrowUp' || key === 'x' || key === 'X') { this.rotate(1); }
+    else if (key === 'z' || key === 'Z') { this.rotate(-1); }
+    else if (key === 'ArrowDown' || key === 's') { this.softDropping = true; }
+    else if (key === ' ') { this.hardDrop(); }
+    else if (key === 'c' || key === 'C') { this.holdPiece(); }
+  }
+
+  update() {
+    if (!this.gameActive) return;
+
+    // Clear animation
+    if (this.clearingLines && this.clearAnimTimer > 0) {
+      this.clearAnimTimer--;
+      if (this.clearAnimTimer <= 0) this.clearingLines = null;
+    }
+
+    // DAS
+    if (this.dasDir !== 0) {
+      this.dasTimer++;
+      if (this.dasTimer >= this.dasDelay) {
+        this.arrTimer++;
+        if (this.arrTimer >= this.arrDelay) {
+          this.move(this.dasDir);
+          this.arrTimer = 0;
+        }
+      }
+    }
+
+    // Drop
+    this.dropTimer++;
+    const dropSpeed = this.softDropping ? 2 : this.dropInterval;
+    if (this.dropTimer >= dropSpeed) {
+      this.dropTimer = 0;
+      const blocks = this.getBlocks();
+      if (!this.collides(blocks, this.currentX, this.currentY + 1)) {
+        this.currentY++;
+        if (this.softDropping) this.score += 1;
+      } else {
+        // Lock delay
+        this.lockDelay++;
+        if (this.lockDelay >= this.lockDelayMax) {
+          this.lockPiece();
+        }
+      }
+    }
+
+    // Update effects
+    this.particles = this.particles.filter(p => {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life -= 0.025;
+      return p.life > 0;
+    });
+    this.floatingText = this.floatingText.filter(ft => {
+      ft.y -= 0.5; ft.life -= 0.018;
+      return ft.life > 0;
+    });
+
+    updateHud(this.score, this.linesCleared, this.level, this.combo > 1 ? 'Combo ×' + this.combo : 'Lines: ' + this.linesCleared);
+  }
+
+  gameOver() {
+    currentGame = null;
+    updateHud(this.score, this.linesCleared, this.level, 'GAME OVER');
+    this.draw(ctx);
+    startInitialsEntry('Tetris', this.score, this.level);
+  }
+
+  spawnParticles(x, y, color, count) {
+    for (let i = 0; i < count; i++) {
+      this.particles.push({
+        x, y,
+        vx: (Math.random() - 0.5) * 5,
+        vy: (Math.random() - 0.5) * 5,
+        life: 1, color, size: 2 + Math.random() * 3
+      });
+    }
+  }
+
+  drawBlock(ctx, x, y, color, ghost) {
+    const px = this.offsetX + x * this.cellSize;
+    const py = this.offsetY + y * this.cellSize;
+    if (ghost) {
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = 0.3;
+      ctx.strokeRect(px + 1, py + 1, this.cellSize - 2, this.cellSize - 2);
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.fillStyle = color;
+      ctx.fillRect(px + 1, py + 1, this.cellSize - 2, this.cellSize - 2);
+      // Highlight
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.fillRect(px + 1, py + 1, this.cellSize - 2, 3);
+      ctx.fillRect(px + 1, py + 1, 3, this.cellSize - 2);
+    }
+  }
+
+  drawMiniPiece(ctx, piece, cx, cy, label) {
+    if (!piece) return;
+    ctx.font = '600 10px "JetBrains Mono"';
+    ctx.fillStyle = C.dim;
+    ctx.textAlign = 'center';
+    ctx.fillText(label, cx, cy - 25);
+    const blocks = piece.shape;
+    const minX = Math.min(...blocks.map(b => b[0]));
+    const maxX = Math.max(...blocks.map(b => b[0]));
+    const minY = Math.min(...blocks.map(b => b[1]));
+    const maxY = Math.max(...blocks.map(b => b[1]));
+    const bw = maxX - minX + 1, bh = maxY - minY + 1;
+    const sz = 12;
+    const startX = cx - (bw * sz) / 2;
+    const startY = cy - (bh * sz) / 2;
+    blocks.forEach(([bx, by]) => {
+      ctx.fillStyle = piece.color;
+      ctx.fillRect(startX + (bx - minX) * sz + 1, startY + (by - minY) * sz + 1, sz - 2, sz - 2);
+    });
+    ctx.textAlign = 'left';
+  }
+
+  draw(ctx) {
+    ctx.fillStyle = C.bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Board border
+    ctx.strokeStyle = C.border;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(this.offsetX - 2, this.offsetY - 2, this.boardW * this.cellSize + 4, this.boardH * this.cellSize + 4);
+
+    // Board background
+    ctx.fillStyle = 'rgba(22,27,34,0.8)';
+    ctx.fillRect(this.offsetX, this.offsetY, this.boardW * this.cellSize, this.boardH * this.cellSize);
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(48,54,61,0.3)';
+    ctx.lineWidth = 0.5;
+    for (let x = 0; x <= this.boardW; x++) {
+      ctx.beginPath();
+      ctx.moveTo(this.offsetX + x * this.cellSize, this.offsetY);
+      ctx.lineTo(this.offsetX + x * this.cellSize, this.offsetY + this.boardH * this.cellSize);
+      ctx.stroke();
+    }
+    for (let y = 0; y <= this.boardH; y++) {
+      ctx.beginPath();
+      ctx.moveTo(this.offsetX, this.offsetY + y * this.cellSize);
+      ctx.lineTo(this.offsetX + this.boardW * this.cellSize, this.offsetY + y * this.cellSize);
+      ctx.stroke();
+    }
+
+    // Board cells
+    for (let y = 0; y < this.boardH; y++) {
+      for (let x = 0; x < this.boardW; x++) {
+        if (this.board[y][x]) {
+          // Flash effect for clearing lines
+          if (this.clearingLines && this.clearingLines.includes(y)) {
+            ctx.globalAlpha = this.clearAnimTimer / this.clearAnimDuration;
+            this.drawBlock(ctx, x, y, C.text, false);
+            ctx.globalAlpha = 1;
+          } else {
+            this.drawBlock(ctx, x, y, this.board[y][x], false);
+          }
+        }
+      }
+    }
+
+    // Ghost piece
+    if (this.current && this.gameActive) {
+      const ghostY = this.getGhostY();
+      const blocks = this.getBlocks();
+      blocks.forEach(([bx, by]) => {
+        this.drawBlock(ctx, this.currentX + bx, ghostY + by, this.current.color, true);
+      });
+
+      // Current piece
+      blocks.forEach(([bx, by]) => {
+        const y = this.currentY + by;
+        if (y >= 0) this.drawBlock(ctx, this.currentX + bx, y, this.current.color, false);
+      });
+    }
+
+    // Side panels
+    const rightX = this.offsetX + this.boardW * this.cellSize + 30;
+    const leftX = this.offsetX - 70;
+
+    // Next piece
+    this.drawMiniPiece(ctx, this.next, rightX + 20, this.offsetY + 40, 'NEXT');
+
+    // Held piece
+    this.drawMiniPiece(ctx, this.held, leftX + 20, this.offsetY + 40, 'HOLD');
+
+    // Stats on right panel
+    ctx.font = '600 10px "JetBrains Mono"';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = C.dim;
+    ctx.fillText('SCORE', rightX + 20, this.offsetY + 110);
+    ctx.fillStyle = C.text;
+    ctx.font = '700 13px "JetBrains Mono"';
+    ctx.fillText(this.score.toLocaleString(), rightX + 20, this.offsetY + 128);
+
+    ctx.font = '600 10px "JetBrains Mono"';
+    ctx.fillStyle = C.dim;
+    ctx.fillText('LINES', rightX + 20, this.offsetY + 155);
+    ctx.fillStyle = C.green;
+    ctx.font = '700 13px "JetBrains Mono"';
+    ctx.fillText(this.linesCleared, rightX + 20, this.offsetY + 173);
+
+    ctx.font = '600 10px "JetBrains Mono"';
+    ctx.fillStyle = C.dim;
+    ctx.fillText('LEVEL', rightX + 20, this.offsetY + 200);
+    ctx.fillStyle = C.accent;
+    ctx.font = '700 13px "JetBrains Mono"';
+    ctx.fillText(this.level, rightX + 20, this.offsetY + 218);
+
+    // Controls hint
+    ctx.font = '500 9px "JetBrains Mono"';
+    ctx.fillStyle = C.muted;
+    ctx.textAlign = 'center';
+    ctx.fillText('←→ Move', leftX + 20, this.offsetY + 130);
+    ctx.fillText('↑/X Rotate', leftX + 20, this.offsetY + 145);
+    ctx.fillText('Z  Rot CCW', leftX + 20, this.offsetY + 160);
+    ctx.fillText('↓  Soft drop', leftX + 20, this.offsetY + 175);
+    ctx.fillText('SPC Hard drop', leftX + 20, this.offsetY + 190);
+    ctx.fillText('C  Hold', leftX + 20, this.offsetY + 205);
+    ctx.textAlign = 'left';
+
+    // Particles
+    this.particles.forEach(p => {
+      ctx.globalAlpha = p.life;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    });
+    ctx.globalAlpha = 1;
+
+    // Floating text
+    this.floatingText.forEach(ft => {
+      ctx.globalAlpha = Math.min(ft.life, 1);
+      ctx.fillStyle = ft.color;
+      ctx.font = '700 16px "JetBrains Mono"';
+      ctx.textAlign = 'center';
+      ctx.fillText(ft.text, ft.x, ft.y);
+    });
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'left';
+  }
+}
+
+// ════════════════════════════════════════
+// SPACE INVADERS
+// ════════════════════════════════════════
+class SpaceInvaders {
+  constructor() {
+    this.score = 0;
+    this.lives = 3;
+    this.level = 1;
+    this.particles = [];
+    this.floatingText = [];
+    this.keys = {};
+
+    // Player
+    this.playerX = W / 2;
+    this.playerW = 30;
+    this.playerH = 16;
+    this.playerY = H - 30;
+    this.playerSpeed = 4;
+    this.playerHit = 0; // invincibility frames after hit
+
+    // Bullets
+    this.bullets = [];
+    this.shootCooldown = 0;
+    this.maxBullets = 2;
+
+    // Aliens
+    this.aliens = [];
+    this.alienDir = 1;
+    this.alienMoveTimer = 0;
+    this.alienMoveInterval = 40;
+    this.alienStepX = 8;
+    this.alienStepDown = 12;
+    this.alienBullets = [];
+    this.alienShootTimer = 0;
+    this.alienShootInterval = 60;
+
+    // Mystery ship
+    this.mystery = null;
+    this.mysteryTimer = 0;
+    this.mysteryInterval = 600;
+
+    // Shields
+    this.shields = [];
+
+    // Power-ups
+    this.powerups = [];
+    this.rapidFireTimer = 0;
+    this.doubleFireTimer = 0;
+    this.shieldHits = 0; // player shield absorbs
+
+    this.buildLevel();
+    updateHud(0, 3, 1, 'Aliens: ' + this.aliens.length);
+  }
+
+  buildLevel() {
+    this.aliens = [];
+    const cols = 11, rows = 5;
+    const alienW = 24, alienH = 16;
+    const spacing = 36;
+    const startX = (W - cols * spacing) / 2 + spacing / 2;
+    const startY = 40 + Math.min((this.level - 1) * 10, 60);
+
+    const types = [
+      { points: 30, color: C.cyan },
+      { points: 20, color: C.green },
+      { points: 20, color: C.green },
+      { points: 10, color: C.accent },
+      { points: 10, color: C.accent },
+    ];
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        this.aliens.push({
+          x: startX + c * spacing,
+          y: startY + r * spacing * 0.6,
+          w: alienW, h: alienH,
+          row: r, col: c,
+          points: types[r].points,
+          color: types[r].color,
+          alive: true,
+          frame: 0,
+        });
+      }
+    }
+
+    // Shields
+    this.shields = [];
+    const shieldY = H - 80;
+    for (let i = 0; i < 4; i++) {
+      const sx = 100 + i * (W - 200) / 3;
+      const blocks = [];
+      // Shield shape: arch
+      for (let by = 0; by < 16; by++) {
+        for (let bx = 0; bx < 22; bx++) {
+          // Cut out bottom center for arch
+          if (by >= 11 && bx >= 7 && bx <= 14) continue;
+          // Round top corners
+          if (by < 3 && (bx < 3 - by || bx > 18 + by)) continue;
+          blocks.push({ x: sx + bx * 2, y: shieldY + by * 2, alive: true });
+        }
+      }
+      this.shields.push(blocks);
+    }
+
+    // Reset alien movement speed based on level
+    this.alienMoveInterval = Math.max(8, 40 - (this.level - 1) * 4);
+    this.alienShootInterval = Math.max(20, 60 - (this.level - 1) * 5);
+    this.alienBullets = [];
+    this.alienMoveTimer = 0;
+    this.alienShootTimer = 0;
+  }
+
+  onKey(key, down) {
+    this.keys[key] = down;
+  }
+
+  onClick(x, y) {
+    // Collect power-ups by clicking
+    for (let i = this.powerups.length - 1; i >= 0; i--) {
+      const pu = this.powerups[i];
+      if (Math.abs(x - pu.x) < 14 && Math.abs(y - pu.y) < 14) {
+        this.collectPowerup(pu);
+        this.powerups.splice(i, 1);
+        return;
+      }
+    }
+  }
+
+  shoot() {
+    if (this.bullets.length >= this.maxBullets) return;
+    const cooldown = this.rapidFireTimer > 0 ? 6 : 15;
+    if (this.shootCooldown > 0) return;
+    this.shootCooldown = cooldown;
+
+    if (this.doubleFireTimer > 0) {
+      this.bullets.push({ x: this.playerX - 6, y: this.playerY - 8, vy: -7 });
+      this.bullets.push({ x: this.playerX + 6, y: this.playerY - 8, vy: -7 });
+    } else {
+      this.bullets.push({ x: this.playerX, y: this.playerY - 8, vy: -7 });
+    }
+  }
+
+  collectPowerup(pu) {
+    const labels = { rapid: 'RAPID FIRE', shield: 'SHIELD +1', double: 'DOUBLE SHOT', bomb: 'BOMB!' };
+    const colors = { rapid: C.red, shield: C.cyan, double: C.green, bomb: C.accent };
+    this.floatingText.push({ text: labels[pu.type], x: pu.x, y: pu.y, life: 1.2, color: colors[pu.type] });
+    this.spawnParticles(pu.x, pu.y, colors[pu.type], 10);
+
+    if (pu.type === 'rapid') this.rapidFireTimer = 300;
+    else if (pu.type === 'shield') this.shieldHits++;
+    else if (pu.type === 'double') this.doubleFireTimer = 300;
+    else if (pu.type === 'bomb') {
+      // Explode nearest 5 aliens
+      const alive = this.aliens.filter(a => a.alive);
+      alive.sort((a, b) => {
+        const da = Math.hypot(a.x - pu.x, a.y - pu.y);
+        const db = Math.hypot(b.x - pu.x, b.y - pu.y);
+        return da - db;
+      });
+      for (let i = 0; i < Math.min(5, alive.length); i++) {
+        this.killAlien(alive[i]);
+      }
+    }
+  }
+
+  killAlien(alien) {
+    alien.alive = false;
+    this.score += alien.points * this.level;
+    this.spawnParticles(alien.x, alien.y, alien.color, 10);
+    this.floatingText.push({ text: '+' + (alien.points * this.level), x: alien.x, y: alien.y, life: 1, color: alien.color });
+
+    // Maybe drop powerup
+    if (Math.random() < 0.08) {
+      const types = ['rapid', 'shield', 'double', 'bomb'];
+      this.powerups.push({ x: alien.x, y: alien.y, type: types[Math.floor(Math.random() * types.length)], vy: 1.5 });
+    }
+  }
+
+  update() {
+    // Player movement
+    if (this.keys['ArrowLeft'] || this.keys['a'] || this.keys['A']) this.playerX = Math.max(this.playerW / 2, this.playerX - this.playerSpeed);
+    if (this.keys['ArrowRight'] || this.keys['d'] || this.keys['D']) this.playerX = Math.min(W - this.playerW / 2, this.playerX + this.playerSpeed);
+    if (this.keys[' ']) this.shoot();
+
+    if (this.shootCooldown > 0) this.shootCooldown--;
+    if (this.playerHit > 0) this.playerHit--;
+    if (this.rapidFireTimer > 0) this.rapidFireTimer--;
+    if (this.doubleFireTimer > 0) this.doubleFireTimer--;
+
+    // Player bullets
+    for (let i = this.bullets.length - 1; i >= 0; i--) {
+      const b = this.bullets[i];
+      b.y += b.vy;
+      if (b.y < 0) { this.bullets.splice(i, 1); continue; }
+
+      // Hit aliens
+      let hit = false;
+      for (const alien of this.aliens) {
+        if (!alien.alive) continue;
+        if (Math.abs(b.x - alien.x) < alien.w / 2 && Math.abs(b.y - alien.y) < alien.h / 2) {
+          this.killAlien(alien);
+          this.bullets.splice(i, 1);
+          hit = true;
+          break;
+        }
+      }
+      if (hit) continue;
+
+      // Hit mystery ship
+      if (this.mystery && Math.abs(b.x - this.mystery.x) < 18 && Math.abs(b.y - this.mystery.y) < 10) {
+        const pts = [50, 100, 150, 200, 300][Math.floor(Math.random() * 5)];
+        this.score += pts;
+        this.spawnParticles(this.mystery.x, this.mystery.y, C.red, 20);
+        this.floatingText.push({ text: '+' + pts + '!', x: this.mystery.x, y: this.mystery.y, life: 1.5, color: C.red });
+        this.mystery = null;
+        this.bullets.splice(i, 1);
+        continue;
+      }
+
+      // Hit shields
+      for (const shield of this.shields) {
+        for (let s = shield.length - 1; s >= 0; s--) {
+          const sb = shield[s];
+          if (!sb.alive) continue;
+          if (Math.abs(b.x - sb.x) < 3 && Math.abs(b.y - sb.y) < 3) {
+            sb.alive = false;
+            this.bullets.splice(i, 1);
+            this.spawnParticles(sb.x, sb.y, C.green, 3);
+            hit = true;
+            break;
+          }
+        }
+        if (hit) break;
+      }
+    }
+
+    // Alien movement
+    this.alienMoveTimer++;
+    const aliveAliens = this.aliens.filter(a => a.alive);
+    // Speed up as fewer aliens remain
+    const speedBoost = Math.max(1, Math.floor((55 - aliveAliens.length) / 10));
+    const currentInterval = Math.max(2, this.alienMoveInterval - speedBoost * 3);
+
+    if (this.alienMoveTimer >= currentInterval) {
+      this.alienMoveTimer = 0;
+      let shouldReverse = false;
+
+      // Check edges
+      for (const alien of aliveAliens) {
+        if ((this.alienDir > 0 && alien.x + this.alienStepX > W - 20) ||
+            (this.alienDir < 0 && alien.x - this.alienStepX < 20)) {
+          shouldReverse = true;
+          break;
+        }
+      }
+
+      if (shouldReverse) {
+        this.alienDir *= -1;
+        for (const alien of this.aliens) alien.y += this.alienStepDown;
+      } else {
+        for (const alien of this.aliens) alien.x += this.alienStepX * this.alienDir;
+      }
+
+      // Toggle animation frame
+      for (const alien of this.aliens) alien.frame = 1 - alien.frame;
+    }
+
+    // Alien shooting
+    this.alienShootTimer++;
+    if (this.alienShootTimer >= this.alienShootInterval && this.alienBullets.length < 3 + this.level) {
+      this.alienShootTimer = 0;
+      // Pick random alive alien from bottom of each column
+      const bottomAliens = [];
+      for (let c = 0; c < 11; c++) {
+        const colAliens = aliveAliens.filter(a => a.col === c);
+        if (colAliens.length > 0) {
+          bottomAliens.push(colAliens.reduce((a, b) => a.y > b.y ? a : b));
+        }
+      }
+      if (bottomAliens.length > 0) {
+        const shooter = bottomAliens[Math.floor(Math.random() * bottomAliens.length)];
+        this.alienBullets.push({ x: shooter.x, y: shooter.y + shooter.h / 2, vy: 3 + this.level * 0.3 });
+      }
+    }
+
+    // Alien bullets
+    for (let i = this.alienBullets.length - 1; i >= 0; i--) {
+      const b = this.alienBullets[i];
+      b.y += b.vy;
+      if (b.y > H) { this.alienBullets.splice(i, 1); continue; }
+
+      // Hit player
+      if (this.playerHit <= 0 && Math.abs(b.x - this.playerX) < this.playerW / 2 && Math.abs(b.y - this.playerY) < this.playerH / 2) {
+        this.alienBullets.splice(i, 1);
+        if (this.shieldHits > 0) {
+          this.shieldHits--;
+          this.floatingText.push({ text: 'SHIELD!', x: this.playerX, y: this.playerY - 20, life: 1, color: C.cyan });
+          this.spawnParticles(this.playerX, this.playerY, C.cyan, 8);
+        } else {
+          this.lives--;
+          this.playerHit = 90; // invincibility frames
+          this.spawnParticles(this.playerX, this.playerY, C.red, 20);
+          if (this.lives <= 0) { this.gameOver(); return; }
+        }
+        continue;
+      }
+
+      // Hit shields
+      let hit = false;
+      for (const shield of this.shields) {
+        for (let s = shield.length - 1; s >= 0; s--) {
+          const sb = shield[s];
+          if (!sb.alive) continue;
+          if (Math.abs(b.x - sb.x) < 3 && Math.abs(b.y - sb.y) < 3) {
+            sb.alive = false;
+            this.alienBullets.splice(i, 1);
+            this.spawnParticles(sb.x, sb.y, C.green, 3);
+            hit = true;
+            break;
+          }
+        }
+        if (hit) break;
+      }
+    }
+
+    // Aliens reaching player level = game over
+    for (const alien of aliveAliens) {
+      if (alien.y + alien.h / 2 >= this.playerY - this.playerH) {
+        this.gameOver();
+        return;
+      }
+    }
+
+    // Aliens destroy shields they pass through
+    for (const alien of aliveAliens) {
+      for (const shield of this.shields) {
+        for (const sb of shield) {
+          if (!sb.alive) continue;
+          if (Math.abs(alien.x - sb.x) < alien.w / 2 + 2 && Math.abs(alien.y - sb.y) < alien.h / 2 + 2) {
+            sb.alive = false;
+          }
+        }
+      }
+    }
+
+    // Mystery ship
+    this.mysteryTimer++;
+    if (!this.mystery && this.mysteryTimer >= this.mysteryInterval) {
+      this.mysteryTimer = 0;
+      this.mystery = { x: -30, y: 25, dir: 1 };
+      if (Math.random() < 0.5) { this.mystery.x = W + 30; this.mystery.dir = -1; }
+    }
+    if (this.mystery) {
+      this.mystery.x += 2 * this.mystery.dir;
+      if (this.mystery.x < -40 || this.mystery.x > W + 40) this.mystery = null;
+    }
+
+    // Power-ups fall
+    for (let i = this.powerups.length - 1; i >= 0; i--) {
+      this.powerups[i].y += this.powerups[i].vy;
+      if (this.powerups[i].y > H) { this.powerups.splice(i, 1); continue; }
+      // Auto-collect on player contact
+      const pu = this.powerups[i];
+      if (Math.abs(pu.x - this.playerX) < this.playerW / 2 + 10 && Math.abs(pu.y - this.playerY) < this.playerH / 2 + 10) {
+        this.collectPowerup(pu);
+        this.powerups.splice(i, 1);
+      }
+    }
+
+    // All aliens dead = next level
+    if (aliveAliens.length === 0) {
+      this.level++;
+      this.floatingText.push({ text: 'WAVE ' + this.level + '!', x: W / 2, y: H / 2, life: 2, color: C.accent });
+      this.buildLevel();
+    }
+
+    // Update particles
+    this.particles = this.particles.filter(p => {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life -= 0.025;
+      return p.life > 0;
+    });
+    this.floatingText = this.floatingText.filter(ft => {
+      ft.y -= 0.5; ft.life -= 0.015;
+      return ft.life > 0;
+    });
+
+    const status = this.rapidFireTimer > 0 ? 'RAPID FIRE!' : this.doubleFireTimer > 0 ? 'DOUBLE SHOT!' : 'Aliens: ' + aliveAliens.length;
+    updateHud(this.score, this.lives + (this.shieldHits > 0 ? '+' + this.shieldHits : ''), this.level, status);
+  }
+
+  gameOver() {
+    currentGame = null;
+    updateHud(this.score, 0, this.level, 'GAME OVER');
+    this.draw(ctx);
+    startInitialsEntry('Space Invaders', this.score, this.level);
+  }
+
+  spawnParticles(x, y, color, count) {
+    for (let i = 0; i < count; i++) {
+      this.particles.push({
+        x, y,
+        vx: (Math.random() - 0.5) * 6,
+        vy: (Math.random() - 0.5) * 6,
+        life: 1, color, size: 2 + Math.random() * 3
+      });
+    }
+  }
+
+  drawAlien(ctx, alien) {
+    if (!alien.alive) return;
+    const x = alien.x, y = alien.y, w = alien.w / 2, h = alien.h / 2;
+    ctx.fillStyle = alien.color;
+
+    if (alien.row === 0) {
+      // Small alien (top row) — diamond-ish
+      ctx.beginPath();
+      ctx.moveTo(x, y - h);
+      ctx.lineTo(x + w, y);
+      ctx.lineTo(x + w * 0.6, y + h * 0.5);
+      ctx.lineTo(x + w * (alien.frame ? 0.8 : 0.4), y + h);
+      ctx.lineTo(x - w * (alien.frame ? 0.8 : 0.4), y + h);
+      ctx.lineTo(x - w * 0.6, y + h * 0.5);
+      ctx.lineTo(x - w, y);
+      ctx.closePath();
+      ctx.fill();
+    } else if (alien.row <= 2) {
+      // Medium alien — rounded body
+      ctx.fillRect(x - w * 0.8, y - h * 0.6, w * 1.6, h * 1.2);
+      ctx.fillRect(x - w, y - h * 0.3, w * 2, h * 0.8);
+      // Legs
+      const legSpread = alien.frame ? 0.9 : 0.5;
+      ctx.fillRect(x - w * legSpread - 2, y + h * 0.4, 4, h * 0.4);
+      ctx.fillRect(x + w * legSpread - 2, y + h * 0.4, 4, h * 0.4);
+      // Eyes
+      ctx.fillStyle = C.bg;
+      ctx.fillRect(x - 4, y - h * 0.2, 3, 3);
+      ctx.fillRect(x + 2, y - h * 0.2, 3, 3);
+    } else {
+      // Large alien — wide body
+      ctx.fillRect(x - w, y - h * 0.5, w * 2, h);
+      ctx.fillRect(x - w * 0.7, y - h * 0.8, w * 1.4, h * 0.4);
+      // Arms/legs
+      const spread = alien.frame ? 1.1 : 0.7;
+      ctx.fillRect(x - w * spread - 2, y + h * 0.3, 4, h * 0.5);
+      ctx.fillRect(x + w * spread - 2, y + h * 0.3, 4, h * 0.5);
+      // Eyes
+      ctx.fillStyle = C.bg;
+      ctx.fillRect(x - 5, y - h * 0.3, 3, 3);
+      ctx.fillRect(x + 3, y - h * 0.3, 3, 3);
+    }
+  }
+
+  draw(ctx) {
+    ctx.fillStyle = C.bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Stars background
+    ctx.fillStyle = C.muted;
+    for (let i = 0; i < 50; i++) {
+      // Deterministic stars based on index
+      const sx = ((i * 137 + 31) % W);
+      const sy = ((i * 97 + 17) % H);
+      const sz = (i % 3 === 0) ? 2 : 1;
+      ctx.globalAlpha = 0.3 + (i % 5) * 0.1;
+      ctx.fillRect(sx, sy, sz, sz);
+    }
+    ctx.globalAlpha = 1;
+
+    // Shields
+    this.shields.forEach(shield => {
+      shield.forEach(sb => {
+        if (!sb.alive) return;
+        ctx.fillStyle = C.green;
+        ctx.fillRect(sb.x, sb.y, 2, 2);
+      });
+    });
+
+    // Aliens
+    this.aliens.forEach(a => this.drawAlien(ctx, a));
+
+    // Mystery ship
+    if (this.mystery) {
+      const mx = this.mystery.x, my = this.mystery.y;
+      ctx.fillStyle = C.red;
+      // Saucer shape
+      ctx.beginPath();
+      ctx.ellipse(mx, my, 18, 7, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = C.red;
+      ctx.beginPath();
+      ctx.ellipse(mx, my - 4, 8, 5, 0, Math.PI, Math.PI * 2);
+      ctx.fill();
+      // Lights
+      ctx.fillStyle = C.accent;
+      const blink = Math.floor(Date.now() / 100) % 3;
+      ctx.fillRect(mx - 10 + blink * 8, my + 2, 3, 2);
+    }
+
+    // Player
+    if (this.playerHit <= 0 || Math.floor(this.playerHit / 4) % 2 === 0) {
+      const px = this.playerX, py = this.playerY;
+      ctx.fillStyle = C.green;
+      // Ship shape
+      ctx.beginPath();
+      ctx.moveTo(px, py - this.playerH / 2);
+      ctx.lineTo(px + this.playerW / 2, py + this.playerH / 2);
+      ctx.lineTo(px + this.playerW / 3, py + this.playerH / 2);
+      ctx.lineTo(px + this.playerW / 4, py + 2);
+      ctx.lineTo(px - this.playerW / 4, py + 2);
+      ctx.lineTo(px - this.playerW / 3, py + this.playerH / 2);
+      ctx.lineTo(px - this.playerW / 2, py + this.playerH / 2);
+      ctx.closePath();
+      ctx.fill();
+      // Cannon
+      ctx.fillRect(px - 2, py - this.playerH / 2 - 4, 4, 6);
+
+      // Shield indicator
+      if (this.shieldHits > 0) {
+        ctx.strokeStyle = C.cyan;
+        ctx.globalAlpha = 0.5 + Math.sin(Date.now() * 0.005) * 0.3;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(px, py, this.playerW / 2 + 4, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // Player bullets
+    ctx.fillStyle = C.text;
+    this.bullets.forEach(b => {
+      ctx.fillRect(b.x - 1, b.y, 2, 8);
+    });
+
+    // Alien bullets
+    ctx.fillStyle = C.red;
+    this.alienBullets.forEach(b => {
+      ctx.fillRect(b.x - 1.5, b.y, 3, 8);
+    });
+
+    // Power-ups
+    const puColors = { rapid: C.red, shield: C.cyan, double: C.green, bomb: C.accent };
+    const puSymbols = { rapid: '»', shield: '◈', double: '⇈', bomb: '✸' };
+    this.powerups.forEach(pu => {
+      const pulse = Math.sin(Date.now() * 0.008) * 2;
+      ctx.fillStyle = puColors[pu.type];
+      ctx.globalAlpha = 0.3;
+      ctx.beginPath(); ctx.arc(pu.x, pu.y, 10 + pulse, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.font = '700 12px "JetBrains Mono"';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(puSymbols[pu.type], pu.x, pu.y);
+      ctx.textBaseline = 'alphabetic';
+    });
+    ctx.textAlign = 'left';
+
+    // Particles
+    this.particles.forEach(p => {
+      ctx.globalAlpha = p.life;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    });
+    ctx.globalAlpha = 1;
+
+    // Floating text
+    this.floatingText.forEach(ft => {
+      ctx.globalAlpha = Math.min(ft.life, 1);
+      ctx.fillStyle = ft.color;
+      ctx.font = '700 14px "JetBrains Mono"';
+      ctx.textAlign = 'center';
+      ctx.fillText(ft.text, ft.x, ft.y);
+    });
     ctx.globalAlpha = 1;
     ctx.textAlign = 'left';
   }
