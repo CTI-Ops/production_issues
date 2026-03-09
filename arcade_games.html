@@ -1532,6 +1532,9 @@ class Snake {
     this.moveInterval = 9; // frames between moves (lower = faster)
     this.growCount = 0;
 
+    // Walls (from level 3+)
+    this.walls = [];
+
     // Food
     this.food = null;
     this.spawnFood();
@@ -1542,9 +1545,6 @@ class Snake {
     this.ghostTimer = 0;
     this.speedBoostTimer = 0;
     this.bonusTimer = 0;
-
-    // Walls (from level 3+)
-    this.walls = [];
 
     // Trail effect
     this.trail = [];
