@@ -130,7 +130,7 @@
     <div style="padding:0.5rem;">
       <div class="log-table-wrap">
         <table class="log-table">
-          <thead><tr><th>#</th><th>Item</th><th>Op</th><th>Time</th><th>Qty</th><th>Issues</th></tr></thead>
+          <thead><tr><th>#</th><th>Item / Op</th><th>Time</th><th>Qty</th><th>Issues</th></tr></thead>
           <tbody id="recentBody"></tbody>
         </table>
       </div>
@@ -205,7 +205,7 @@ function renderDashboard(d){
     var tbody=document.getElementById('recentBody');
     tbody.innerHTML=recentEntries.map(function(e,i){
       var issues=(e.issues||'None').replace(/;/g,', ');
-      return '<tr><td>'+(i+1)+'</td><td>'+esc(e.item||'')+'</td><td style="font-size:0.68rem">'+esc(e.operation||'')+'</td><td>'+(e.task_time_min||'?')+'m</td><td>'+(e.quantity||'')+'</td><td style="font-size:0.68rem">'+esc(issues)+'</td></tr>';
+      return '<tr><td>'+(i+1)+'</td><td>'+esc(e.item||'')+'<br><span style="font-size:0.68rem;opacity:0.7">'+esc(e.operation||'')+'</span></td><td>'+(e.task_time_min||'?')+'m</td><td>'+(e.quantity||'')+'</td><td style="font-size:0.68rem">'+esc(issues)+'</td></tr>';
     }).join('');
   } else { document.getElementById('dashRecent').style.display='none'; }
 }

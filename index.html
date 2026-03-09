@@ -177,7 +177,7 @@
   <div class="section log-section" id="logSection" style="display:none;">
     <div class="section-head"><span class="section-num">LOG</span><span class="section-label">Session Entries</span></div>
     <div class="section-body" style="padding:0.5rem;">
-      <div class="log-table-wrap"><table class="log-table"><thead><tr><th>#</th><th>Item</th><th>Operation</th><th>Time</th><th>Qty</th><th>T/Part</th></tr></thead><tbody id="logBody"></tbody></table></div>
+      <div class="log-table-wrap"><table class="log-table"><thead><tr><th>#</th><th>Item / Operation</th><th>Time</th><th>Qty</th><th>T/Part</th></tr></thead><tbody id="logBody"></tbody></table></div>
     </div>
   </div>
   </div>
@@ -432,7 +432,7 @@ async function submitForm(){
 function addToLog(id,data,calc){
   sessionEntries.push({id,data,calc}); document.getElementById('logSection').style.display='block';
   const body=document.getElementById('logBody'), tr=document.createElement('tr');
-  tr.innerHTML='<td>'+sessionEntries.length+'</td><td>'+data.item+'</td><td style="font-size:0.68rem">'+data.operation+'</td><td>'+calc.task_time_min+'m</td><td>'+data.quantity+'</td><td>'+calc.time_per_part+'</td>';
+  tr.innerHTML='<td>'+sessionEntries.length+'</td><td>'+data.item+'<br><span style="font-size:0.68rem;opacity:0.7">'+data.operation+'</span></td><td>'+calc.task_time_min+'m</td><td>'+data.quantity+'</td><td>'+calc.time_per_part+'</td>';
   body.insertBefore(tr,body.firstChild);
 }
 
