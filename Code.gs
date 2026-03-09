@@ -166,7 +166,13 @@ function getDashboardData() {
              issues_breakdown: {}, items_breakdown: {}, recent_entries: [], period: 'all time' };
   }
 
-  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
+  // Cap rows to avoid the high-score block that starts at HS_START_ROW (row 3000)
+  const lastDataRow = Math.min(sheet.getLastRow(), HS_START_ROW - 1);
+  if (lastDataRow < 2) {
+    return { total_entries: 0, total_parts: 0, total_time_min: 0, entries_with_issues: 0,
+             issues_breakdown: {}, items_breakdown: {}, recent_entries: [], period: 'all time' };
+  }
+  const data = sheet.getRange(2, 1, lastDataRow - 1, 13).getValues();
 
   // Columns (0-indexed): A:# B:Time C:Date D:Item E:Op F:Start G:End H:Qty I:Issues J:Comments K:Time L:Time/Part
   let totalEntries = 0, totalParts = 0, totalTime = 0, entriesWithIssues = 0;
