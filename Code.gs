@@ -180,6 +180,10 @@ function getDashboardData() {
 
   for (let i = 0; i < data.length; i++) {
     const row = data[i];
+    // Skip blank / empty rows (no item and no quantity)
+    const rowItem = (row[3] || '').toString().trim();
+    const rowQty  = parseInt(row[7]) || 0;
+    if (!rowItem && !rowQty) continue;
     totalEntries++;
     const qty = parseInt(row[7]) || 0;
     const taskTime = parseInt(row[10]) || 0;

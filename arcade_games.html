@@ -2083,11 +2083,14 @@ class Tetris {
       }
     });
 
-    // Remove lines
+    // Remove lines (splice all first, then backfill — splicing and
+    // unshifting in the same loop shifts indices and skips rows)
     fullLines.sort((a, b) => b - a).forEach(y => {
       this.board.splice(y, 1);
-      this.board.unshift(Array(this.boardW).fill(null));
     });
+    while (this.board.length < this.boardH) {
+      this.board.unshift(Array(this.boardW).fill(null));
+    }
 
     // Level up
     const newLevel = Math.floor(this.linesCleared / 10) + 1;
