@@ -458,6 +458,21 @@ function gameLoop() {
 
 // ── Input ──
 document.addEventListener('keydown', e => {
+  // ESC×3 → tracker works from ANY screen (including before overlay is open)
+  if (e.key === 'Escape') {
+    escPressCount++;
+    if (escTimer) clearTimeout(escTimer);
+    escTimer = setTimeout(() => { escPressCount = 0; }, 1200);
+
+    if (escPressCount >= 3) {
+      e.preventDefault();
+      clearTimeout(escTimer); escPressCount = 0;
+      initialsEntry = null;
+      window.location.href = 'index.html';
+      return;
+    }
+  }
+
   if (!document.getElementById('arcade-overlay').classList.contains('open')) return;
 
   // Initials entry intercept (non-Escape keys)
@@ -469,16 +484,6 @@ document.addEventListener('keydown', e => {
 
   if (e.key === 'Escape') {
     e.preventDefault();
-    escPressCount++;
-    if (escTimer) clearTimeout(escTimer);
-    escTimer = setTimeout(() => { escPressCount = 0; }, 1200);
-
-    if (escPressCount >= 3) {
-      clearTimeout(escTimer); escPressCount = 0;
-      initialsEntry = null;
-      window.location.href = 'index.html';
-      return;
-    }
 
     // On initials screen (submitted or not), ESC×2 goes back to menu
     if (initialsEntry && !currentGame) {
