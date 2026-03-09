@@ -2158,14 +2158,20 @@ class Tetris {
       const blocks = this.getBlocks();
       if (!this.collides(blocks, this.currentX, this.currentY + 1)) {
         this.currentY++;
+        this.lockDelay = 0;
         if (this.softDropping) this.score += 1;
-      } else {
-        // Lock delay
-        this.lockDelay++;
-        if (this.lockDelay >= this.lockDelayMax) {
-          this.lockPiece();
-        }
       }
+    }
+
+    // Lock delay (counted every frame, independent of drop timer)
+    const blocks = this.getBlocks();
+    if (this.collides(blocks, this.currentX, this.currentY + 1)) {
+      this.lockDelay++;
+      if (this.lockDelay >= this.lockDelayMax) {
+        this.lockPiece();
+      }
+    } else {
+      this.lockDelay = 0;
     }
 
     // Update effects
