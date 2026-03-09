@@ -166,8 +166,7 @@ function getDashboardData() {
              issues_breakdown: {}, items_breakdown: {}, recent_entries: [], period: 'all time' };
   }
 
-  // Cap rows to avoid the high-score block that starts at HS_START_ROW (row 3000)
-  const lastDataRow = Math.min(sheet.getLastRow(), HS_START_ROW - 1);
+  const lastDataRow = sheet.getLastRow();
   if (lastDataRow < 2) {
     return { total_entries: 0, total_parts: 0, total_time_min: 0, entries_with_issues: 0,
              issues_breakdown: {}, items_breakdown: {}, recent_entries: [], period: 'all time' };
@@ -308,30 +307,30 @@ function getDashboardData() {
   };
 }
 
-// ── High Scores (stored on Data Log sheet starting at BZ3000) ──
-// Layout: BZ=Game, CA=Initials, CB=Score, CC=Level, CD=Date
+// ── High Scores (stored in a separate workbook) ──
+// Layout: A=Game, B=Initials, C=Score, D=Level, E=Date
 // Only the top 5 scores per game are kept.
-const HS_START_ROW = 3000;
-const HS_COL = { GAME: 78, INITIALS: 79, SCORE: 80, LEVEL: 81, DATE: 82 }; // BZ=78, CA=79, CB=80, CC=81, CD=82
+const HS_WORKBOOK_ID = '1l-9sJvzY_WiFOS97mwC3pb3LAn7s3zQCQf3153szk70';
+const HS_SHEET_NAME = 'High Scores';
 const HS_TOP_N = 5;
 
+function getHSSheet_() {
+  var wb = SpreadsheetApp.openById(HS_WORKBOOK_ID);
+  var sheet = wb.getSheetByName(HS_SHEET_NAME);
+  if (!sheet) {
+    sheet = wb.insertSheet(HS_SHEET_NAME);
+    sheet.getRange(1, 1, 1, 5).setValues([['Game', 'Initials', 'Score', 'Level', 'Date']]);
+  }
+  return sheet;
+}
+
 function handleHighScore(data) {
-  const sheet = SS.getSheetByName(LOG_SHEET) || SS.insertSheet(LOG_SHEET);
+  var sheet = getHSSheet_();
   const game = (data.game || '').trim();
   const initials = (data.initials || '???').toUpperCase().substring(0, 3);
   const score = parseInt(data.score) || 0;
   const level = parseInt(data.level) || 1;
   if (!game || score <= 0) return jsonResponse({ success: false, error: 'Invalid score data' });
-
-  // Header row at BZ3000
-  var headerCell = sheet.getRange(HS_START_ROW, HS_COL.GAME).getValue();
-  if (!headerCell || headerCell.toString().trim() === '') {
-    sheet.getRange(HS_START_ROW, HS_COL.GAME).setValue('Game');
-    sheet.getRange(HS_START_ROW, HS_COL.INITIALS).setValue('Initials');
-    sheet.getRange(HS_START_ROW, HS_COL.SCORE).setValue('Score');
-    sheet.getRange(HS_START_ROW, HS_COL.LEVEL).setValue('Level');
-    sheet.getRange(HS_START_ROW, HS_COL.DATE).setValue('Date');
-  }
 
   // Read all existing score rows
   var allScores = readAllHighScores_(sheet);
@@ -352,25 +351,29 @@ function handleHighScore(data) {
   }
 
   // Rewrite the score rows (clear old data first, then write kept scores)
-  var maxRows = allScores.length + 1; // previous count + 1 for safety
-  if (maxRows > 0) {
-    sheet.getRange(HS_START_ROW + 1, HS_COL.GAME, maxRows, 5).clearContent();
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    sheet.getRange(2, 1, lastRow - 1, 5).clearContent();
   }
   for (var i = 0; i < kept.length; i++) {
-    var row = HS_START_ROW + 1 + i;
-    sheet.getRange(row, HS_COL.GAME).setValue(kept[i].game);
-    sheet.getRange(row, HS_COL.INITIALS).setValue(kept[i].initials);
-    sheet.getRange(row, HS_COL.SCORE).setValue(kept[i].score);
-    sheet.getRange(row, HS_COL.LEVEL).setValue(kept[i].level);
-    sheet.getRange(row, HS_COL.DATE).setValue(kept[i].date);
+    var row = 2 + i;
+    sheet.getRange(row, 1).setValue(kept[i].game);
+    sheet.getRange(row, 2).setValue(kept[i].initials);
+    sheet.getRange(row, 3).setValue(kept[i].score);
+    sheet.getRange(row, 4).setValue(kept[i].level);
+    sheet.getRange(row, 5).setValue(kept[i].date);
   }
 
   return jsonResponse({ success: true, game: game, score: score });
 }
 
 function getHighScores() {
-  var sheet = SS.getSheetByName(LOG_SHEET);
-  if (!sheet) return { scores_by_game: {} };
+  var sheet;
+  try {
+    sheet = getHSSheet_();
+  } catch(e) {
+    return { scores_by_game: {} };
+  }
 
   var allScores = readAllHighScores_(sheet);
 
@@ -397,10 +400,10 @@ function getHighScores() {
 // Read all high score rows from the sheet (helper)
 function readAllHighScores_(sheet) {
   var lastRow = sheet.getLastRow();
-  if (lastRow < HS_START_ROW + 1) return [];
+  if (lastRow < 2) return [];
 
-  var numRows = lastRow - HS_START_ROW;
-  var data = sheet.getRange(HS_START_ROW + 1, HS_COL.GAME, numRows, 5).getValues();
+  var numRows = lastRow - 1;
+  var data = sheet.getRange(2, 1, numRows, 5).getValues();
   var scores = [];
   for (var i = 0; i < data.length; i++) {
     var game = (data[i][0] || '').toString().trim();
