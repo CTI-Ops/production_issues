@@ -108,6 +108,12 @@
   .rate-btn:hover{border-color:var(--text-muted);color:var(--text);}
   .rate-btn.selected{border-color:var(--accent);background:var(--accent-glow);color:var(--accent);font-weight:600;}
 
+  /* ── BUTTON LOADING ── */
+  .btn-submit.loading{pointer-events:none;opacity:0.7;display:flex;align-items:center;justify-content:center;gap:0.5rem;}
+  .btn-submit .spinner{display:none;width:14px;height:14px;border:2px solid rgba(0,0,0,0.2);border-top-color:#000;border-radius:50%;animation:spin 0.6s linear infinite;}
+  .btn-submit.loading .spinner{display:inline-block;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
   /* ── TOAST ── */
   .toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%) translateY(120%);max-width:400px;width:calc(100% - 2rem);padding:0.7rem 1rem;border-radius:var(--radius-lg);font-size:0.8rem;opacity:0;transition:transform 0.3s,opacity 0.3s;z-index:200;box-shadow:0 8px 30px rgba(0,0,0,0.5);}
   .toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
@@ -199,7 +205,7 @@
         </select>
       </div>
       <div class="modal-actions">
-        <button class="btn-submit" onclick="submitIdea()">Submit Idea</button>
+        <button class="btn-submit" id="btnSubmitIdea" onclick="submitIdea()"><span class="spinner"></span>Submit Idea</button>
         <button class="btn-cancel" onclick="closeNewModal()">Cancel</button>
       </div>
     </div>
@@ -227,7 +233,7 @@
       </div>
       <div class="field" id="ratedByField"><label>Rated By</label><input type="text" id="ratedBy" placeholder="Your name or initials"></div>
       <div class="modal-actions">
-        <button class="btn-submit" onclick="submitRating()">Save Rating</button>
+        <button class="btn-submit" id="btnSaveRating" onclick="submitRating()"><span class="spinner"></span>Save Rating</button>
         <button class="btn-cancel" onclick="closeRateModal()">Cancel</button>
       </div>
     </div>
@@ -317,6 +323,8 @@ async function submitIdea(){
   const title=document.getElementById('ideaTitle').value.trim();
   const category=document.getElementById('ideaCategory').value;
   if(!name||!title){showToast('err','Name and title are required.');return;}
+  const btn=document.getElementById('btnSubmitIdea');
+  btn.classList.add('loading');
   try{
     const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'submitIdea',name,title,category})});
     const result=await res.json();
@@ -329,6 +337,7 @@ async function submitIdea(){
       closeNewModal();
     }else{showToast('err',result.error);}
   }catch(e){showToast('err','Connection error');}
+  finally{btn.classList.remove('loading');}
 }
 
 // ── Rate Modal ──
@@ -358,6 +367,8 @@ async function submitRating(){
   if(!valueSel||!effortSel){showToast('err','Select both value and effort.');return;}
   const ratedBy=document.getElementById('ratedBy').value.trim();
   localStorage.setItem('prodlog_ideas_name',ratedBy);
+  const btn=document.getElementById('btnSaveRating');
+  btn.classList.add('loading');
   try{
     const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'rateIdea',id:ratingIdeaId,value:valueSel.dataset.val,effort:effortSel.dataset.val,rated_by:ratedBy})});
     const result=await res.json();
@@ -367,6 +378,7 @@ async function submitRating(){
       renderIdeas();showToast('ok','Rating saved!');closeRateModal();
     }else{showToast('err',result.error);}
   }catch(e){showToast('err','Connection error');}
+  finally{btn.classList.remove('loading');}
 }
 
 // ── Utils ──
