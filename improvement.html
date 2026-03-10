@@ -484,7 +484,22 @@ function escHtml(s){const d=document.createElement('div');d.textContent=s;return
 function showToast(type,msg){const t=document.getElementById('toast');t.textContent=(type==='ok'?'\u2713 ':'\u2717 ')+msg;t.className='toast '+type+' show';if(toastTimer)clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),4000);}
 
 // Close modals on ESC
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeNewModal();closeRateModal();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(zoomedQuadrant){zoomOut();return;}closeNewModal();closeRateModal();}});
+
+// Mouse wheel zoom on quadrants
+document.querySelector('.matrix').addEventListener('wheel',e=>{
+  if(e.deltaY>0&&!zoomedQuadrant){
+    // Scroll down = zoom into the quadrant under the cursor
+    const quad=e.target.closest('.quadrant');
+    if(quad){
+      const cardsDiv=quad.querySelector('.q-cards');
+      if(cardsDiv&&cardsDiv.id){e.preventDefault();zoomIn(cardsDiv.id);}
+    }
+  }else if(e.deltaY<0&&zoomedQuadrant){
+    // Scroll up = zoom out
+    e.preventDefault();zoomOut();
+  }
+},{passive:false});
 
 init();
 </script>
