@@ -49,14 +49,14 @@
   .quadrant .q-subtitle{font-family:'JetBrains Mono',monospace;font-size:0.58rem;color:var(--text-muted);}
   .quadrant .q-cards{display:flex;flex-wrap:wrap;gap:0.35rem;align-content:flex-start;}
 
-  .q-implement{background:rgba(63,185,80,0.06);}
-  .q-implement .q-title{color:var(--green);}
-  .q-challenge{background:rgba(88,166,255,0.05);}
-  .q-challenge .q-title{color:var(--blue);}
-  .q-possible{background:rgba(210,153,34,0.05);}
-  .q-possible .q-title{color:var(--yellow);}
-  .q-kill{background:rgba(248,81,73,0.05);}
-  .q-kill .q-title{color:var(--red);}
+  .q-implement{background:rgba(63,185,80,0.18);}
+  .q-implement .q-title{color:#1a7f37;}
+  .q-challenge{background:rgba(88,166,255,0.16);}
+  .q-challenge .q-title{color:#1f6feb;}
+  .q-possible{background:rgba(210,153,34,0.16);}
+  .q-possible .q-title{color:#9a6700;}
+  .q-kill{background:rgba(248,81,73,0.16);}
+  .q-kill .q-title{color:#cf222e;}
 
   /* ── IDEA CARDS ── */
   .idea-card{
@@ -113,6 +113,10 @@
   .btn-submit .spinner{display:none;width:14px;height:14px;border:2px solid rgba(0,0,0,0.2);border-top-color:#000;border-radius:50%;animation:spin 0.6s linear infinite;}
   .btn-submit.loading .spinner{display:inline-block;}
   @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* ── CONNECTION STATUS ── */
+  .conn-status{text-align:center;padding:2rem 1rem;color:var(--text-dim);font-size:0.85rem;}
+  .conn-status .spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:0.5rem;}
 
   /* ── TOAST ── */
   .toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%) translateY(120%);max-width:400px;width:calc(100% - 2rem);padding:0.7rem 1rem;border-radius:var(--radius-lg);font-size:0.8rem;opacity:0;transition:transform 0.3s,opacity 0.3s;z-index:200;box-shadow:0 8px 30px rgba(0,0,0,0.5);}
@@ -194,8 +198,12 @@
     <button onclick="saveUrl()">Connect</button>
   </div>
 
+  <div class="conn-status" id="connStatus">
+    <span class="spinner"></span>Connecting to Google Sheet...
+  </div>
+
   <!-- Value/Effort Matrix -->
-  <div class="matrix-wrap">
+  <div class="matrix-wrap" id="matrixWrap" style="display:none;">
     <div class="matrix">
       <div class="quadrant q-implement">
         <div class="q-header"><span class="q-title">Implement</span><span class="q-subtitle">High Value · Low Effort</span></div>
@@ -223,7 +231,7 @@
   </div>
 
   <!-- Inbox -->
-  <div class="inbox" id="inboxSection">
+  <div class="inbox" id="inboxSection" style="display:none;">
     <div class="inbox-header">
       <span class="inbox-title">Inbox — Unrated</span>
       <span class="inbox-count" id="inboxCount">0</span>
@@ -312,6 +320,10 @@ function saveUrl(){
 }
 
 async function loadIdeas(){
+  const status=document.getElementById('connStatus');
+  const matrixWrap=document.getElementById('matrixWrap');
+  const inboxSection=document.getElementById('inboxSection');
+  status.style.display='block';matrixWrap.style.display='none';inboxSection.style.display='none';
   try{
     const res=await fetch(SCRIPT_URL+'?page=ideas');
     const data=await res.json();
@@ -319,7 +331,13 @@ async function loadIdeas(){
     IDEAS=data.ideas||[];
     renderIdeas();
     document.getElementById('configBanner').classList.remove('visible');
-  }catch(e){showToast('err','Could not load ideas: '+e.message);}
+    status.style.display='none';matrixWrap.style.display='';inboxSection.style.display='';
+  }catch(e){
+    status.innerHTML='<span style="color:var(--red);">Failed to connect.</span> Check URL below.';
+    matrixWrap.style.display='';inboxSection.style.display='';
+    document.getElementById('configBanner').classList.add('visible');
+    showToast('err','Could not load ideas: '+e.message);
+  }
 }
 
 function renderIdeas(){
