@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Improvement</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0e1117; --bg-card: #161b22; --bg-hover: #1c2333;
+    --border: #30363d; --border-focus: #e0952b; --text: #e6edf3; --text-dim: #8b949e;
+    --text-muted: #484f58; --accent: #e0952b; --accent-hover: #f0a840;
+    --accent-glow: rgba(224,149,43,0.12); --radius: 8px; --radius-lg: 12px;
+  }
+  html { font-size: 15px; }
+  body { font-family: 'DM Sans', -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.5; }
+  header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 0.9rem 1.5rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; backdrop-filter: blur(12px); }
+  .logo { display: flex; align-items: center; gap: 0.7rem; }
+  .logo-mark { width: 28px; height: 28px; background: var(--accent); border-radius: 6px; display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.75rem; color: #000; }
+  .logo-text { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; }
+  .nav-link { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--accent); text-decoration: none; padding: 0.3rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; transition: all 0.15s; }
+  .nav-link:hover { background: var(--accent-glow); border-color: var(--accent); }
+  main { max-width: 680px; margin: 0 auto; padding: 3rem 1rem; text-align: center; }
+  .placeholder { color: var(--text-muted); font-size: 0.9rem; margin-top: 1rem; }
+  .placeholder-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.4; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">P</div>
+    <span class="logo-text">Improvement</span>
+  </div>
+  <a href="index.html" class="nav-link">Home</a>
+</header>
+
+<main>
+  <div class="placeholder-icon">&#x1F527;</div>
+  <h2>Improvement</h2>
+  <p class="placeholder">This page is under construction. Check back soon.</p>
+</main>
+
+</body>
+</html>
