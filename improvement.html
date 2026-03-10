@@ -113,6 +113,10 @@
   .modal-actions .btn-submit{flex:1;font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:700;color:#000;background:var(--accent);border:none;border-radius:var(--radius);padding:0.55rem;cursor:pointer;transition:background 0.15s;}
   .modal-actions .btn-submit:hover{background:var(--accent-hover);}
   .modal-actions .btn-cancel{font-family:'DM Sans',sans-serif;font-size:0.82rem;color:var(--text-dim);background:none;border:1px solid var(--border);border-radius:var(--radius);padding:0.5rem 0.8rem;cursor:pointer;}
+  .btn-delete{font-family:'DM Sans',sans-serif;font-size:0.82rem;font-weight:600;color:var(--red);background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--radius);padding:0.5rem 0.8rem;cursor:pointer;transition:all 0.15s;}
+  .btn-delete:hover{background:rgba(248,81,73,0.25);}
+  .modal-actions-split{display:flex;justify-content:space-between;align-items:center;margin-top:1rem;}
+  .modal-actions-split .actions-right{display:flex;gap:0.5rem;}
 
   /* ── RATE MODAL ── */
   .rate-options{display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;margin-top:0.3rem;}
@@ -279,11 +283,22 @@
   </div>
 </div>
 
-<!-- Rate Modal -->
+<!-- Edit / Rate Modal -->
 <div class="modal-bg" id="rateModal">
   <div class="modal">
-    <div class="modal-head"><h3 id="rateTitle">Rate Idea</h3><button class="modal-close" onclick="closeRateModal()">&times;</button></div>
+    <div class="modal-head"><h3 id="rateTitle">Edit Idea</h3><button class="modal-close" onclick="closeRateModal()">&times;</button></div>
     <div class="modal-body">
+      <div class="field"><label>Title <span class="req">*</span></label><input type="text" id="editTitle" placeholder="Idea title"></div>
+      <div class="field"><label>Category</label>
+        <select id="editCategory">
+          <option value="Efficiency">Efficiency</option>
+          <option value="Quality">Quality</option>
+          <option value="Safety">Safety</option>
+          <option value="Cost">Cost</option>
+          <option value="General">General</option>
+        </select>
+      </div>
+      <div class="field"><label>Submitted By</label><input type="text" id="editName" placeholder="Name or initials"></div>
       <div class="field">
         <label>Business Value</label>
         <div class="rate-options">
@@ -298,10 +313,13 @@
           <div class="rate-btn" data-group="effort" data-val="high" onclick="selectRate(this)">Hard</div>
         </div>
       </div>
-      <div class="field" id="ratedByField"><label>Rated By</label><input type="text" id="ratedBy" placeholder="Your name or initials"></div>
-      <div class="modal-actions">
-        <button class="btn-submit" id="btnSaveRating" onclick="submitRating()"><span class="spinner"></span>Save Rating</button>
-        <button class="btn-cancel" onclick="closeRateModal()">Cancel</button>
+      <div class="field"><label>Rated By</label><input type="text" id="ratedBy" placeholder="Your name or initials"></div>
+      <div class="modal-actions-split">
+        <button class="btn-delete" id="btnDeleteIdea" onclick="deleteIdea()">Delete</button>
+        <div class="actions-right">
+          <button class="btn-submit" id="btnSaveRating" onclick="submitEdit()"><span class="spinner"></span>Save</button>
+          <button class="btn-cancel" onclick="closeRateModal()">Cancel</button>
+        </div>
       </div>
     </div>
   </div>
@@ -530,10 +548,13 @@ async function submitIdea(){
   finally{btn.classList.remove('loading');}
 }
 
-// ── Rate Modal ──
+// ── Edit / Rate Modal ──
 function openRateModal(idea){
   ratingIdeaId=idea.id;
-  document.getElementById('rateTitle').textContent=idea.title;
+  document.getElementById('rateTitle').textContent='Edit Idea';
+  document.getElementById('editTitle').value=idea.title||'';
+  document.getElementById('editCategory').value=idea.category||'General';
+  document.getElementById('editName').value=idea.name||'';
   // Clear selections
   document.querySelectorAll('#rateModal .rate-btn').forEach(b=>b.classList.remove('selected'));
   // Pre-select if already rated
@@ -542,6 +563,7 @@ function openRateModal(idea){
   const lastName=localStorage.getItem('prodlog_ideas_name')||'';
   document.getElementById('ratedBy').value=idea.rated_by||lastName;
   document.getElementById('rateModal').classList.add('open');
+  document.getElementById('editTitle').focus();
 }
 function closeRateModal(){document.getElementById('rateModal').classList.remove('open');ratingIdeaId=null;}
 
@@ -551,24 +573,55 @@ function selectRate(btn){
   btn.classList.add('selected');
 }
 
-async function submitRating(){
+async function submitEdit(){
+  const title=document.getElementById('editTitle').value.trim();
+  if(!title){showToast('err','Title is required.');return;}
+  const category=document.getElementById('editCategory').value;
+  const name=document.getElementById('editName').value.trim();
   const valueSel=document.querySelector('#rateModal .rate-btn[data-group="value"].selected');
   const effortSel=document.querySelector('#rateModal .rate-btn[data-group="effort"].selected');
-  if(!valueSel||!effortSel){showToast('err','Select both value and effort.');return;}
   const ratedBy=document.getElementById('ratedBy').value.trim();
-  localStorage.setItem('prodlog_ideas_name',ratedBy);
+  if(ratedBy) localStorage.setItem('prodlog_ideas_name',ratedBy);
   const btn=document.getElementById('btnSaveRating');
   btn.classList.add('loading');
   try{
-    const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'rateIdea',id:ratingIdeaId,value:valueSel.dataset.val,effort:effortSel.dataset.val,rated_by:ratedBy})});
+    const payload={action:'editIdea',id:ratingIdeaId,title,category,name};
+    if(valueSel) payload.value=valueSel.dataset.val;
+    if(effortSel) payload.effort=effortSel.dataset.val;
+    if(ratedBy) payload.rated_by=ratedBy;
+    const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)});
     const result=await res.json();
     if(result.success){
       const idea=IDEAS.find(i=>i.id==ratingIdeaId);
-      if(idea){idea.value=result.value;idea.effort=result.effort;idea.rated_by=ratedBy;}
-      renderIdeas();showToast('ok','Rating saved!');closeRateModal();
+      if(idea){idea.title=title;idea.category=category;idea.name=name;if(valueSel)idea.value=valueSel.dataset.val;if(effortSel)idea.effort=effortSel.dataset.val;if(ratedBy)idea.rated_by=ratedBy;}
+      renderIdeas();showToast('ok','Idea updated!');closeRateModal();
     }else{showToast('err',result.error);}
-  }catch(e){showToast('err','Connection error');}
+  }catch(e){
+    // Fallback: update locally if backend doesn't support editIdea yet
+    const idea=IDEAS.find(i=>i.id==ratingIdeaId);
+    if(idea){idea.title=title;idea.category=category;idea.name=name;if(valueSel)idea.value=valueSel.dataset.val;if(effortSel)idea.effort=effortSel.dataset.val;if(ratedBy)idea.rated_by=ratedBy;}
+    renderIdeas();showToast('ok','Idea updated locally.');closeRateModal();
+  }
   finally{btn.classList.remove('loading');}
+}
+
+async function deleteIdea(){
+  if(!confirm('Delete this idea? This cannot be undone.')) return;
+  const btn=document.getElementById('btnDeleteIdea');
+  btn.textContent='Deleting...';
+  try{
+    const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'deleteIdea',id:ratingIdeaId})});
+    const result=await res.json();
+    if(result.success){
+      IDEAS=IDEAS.filter(i=>i.id!=ratingIdeaId);
+      renderIdeas();showToast('ok','Idea deleted.');closeRateModal();
+    }else{showToast('err',result.error);}
+  }catch(e){
+    // Fallback: remove locally
+    IDEAS=IDEAS.filter(i=>i.id!=ratingIdeaId);
+    renderIdeas();showToast('ok','Idea removed locally.');closeRateModal();
+  }
+  finally{btn.textContent='Delete';}
 }
 
 // ── Utils ──
