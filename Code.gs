@@ -8,6 +8,7 @@
 const SS = SpreadsheetApp.getActiveSpreadsheet();
 const LOG_SHEET = 'Data Log';
 const CONFIG_SHEET = 'Config';
+const IDEAS_SHEET = 'Ideas';
 
 // Column positions in the Config sheet (1-indexed)
 const COL = {
@@ -19,6 +20,10 @@ const COL = {
 // ── GET: return config data or dashboard KPIs ──
 function doGet(e) {
   try {
+    const page = (e.parameter && e.parameter.page) || '';
+    if (page === 'ideas') {
+      return jsonResponse(getIdeas());
+    }
     const action = (e.parameter && e.parameter.action) || '';
     if (action === 'dashboard') {
       return jsonResponse(getDashboardData());
@@ -42,6 +47,10 @@ function doPost(e) {
 
     if (data.action === 'submit') {
       return handleSubmit(data);
+    } else if (data.action === 'submitIdea') {
+      return handleSubmitIdea(data);
+    } else if (data.action === 'rateIdea') {
+      return handleRateIdea(data);
     } else if (data.action === 'high_score') {
       return handleHighScore(data);
     } else if (data.action === 'add_config') {
@@ -305,6 +314,88 @@ function getDashboardData() {
     recent_entries: recent,
     period: 'all time'
   };
+}
+
+// ── Improvement Ideas ──
+// Ideas sheet columns:
+//   A: ID | B: Name | C: Title | D: Category | E: Value | F: Effort | G: Rated By | H: Submitted
+
+function getIdeasSheet_() {
+  var sheet = SS.getSheetByName(IDEAS_SHEET);
+  if (!sheet) {
+    sheet = SS.insertSheet(IDEAS_SHEET);
+    sheet.getRange(1, 1, 1, 8).setValues([['ID', 'Name', 'Title', 'Category', 'Value', 'Effort', 'Rated By', 'Submitted']]);
+  }
+  return sheet;
+}
+
+function getIdeas() {
+  var sheet = getIdeasSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { ideas: [] };
+
+  var data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
+  var ideas = [];
+  for (var i = 0; i < data.length; i++) {
+    var id = data[i][0];
+    if (!id && id !== 0) continue;
+    ideas.push({
+      id: id,
+      name: (data[i][1] || '').toString(),
+      title: (data[i][2] || '').toString(),
+      category: (data[i][3] || 'General').toString(),
+      value: (data[i][4] || '').toString().toLowerCase(),
+      effort: (data[i][5] || '').toString().toLowerCase(),
+      rated_by: (data[i][6] || '').toString()
+    });
+  }
+  return { ideas: ideas };
+}
+
+function handleSubmitIdea(data) {
+  var name = (data.name || '').trim();
+  var title = (data.title || '').trim();
+  var category = (data.category || 'General').trim();
+  if (!name || !title) return jsonResponse({ success: false, error: 'Name and title are required' });
+
+  var sheet = getIdeasSheet_();
+  var id = Utilities.getUuid().substring(0, 8);
+
+  sheet.appendRow([id, name, title, category, '', '', '', new Date()]);
+
+  return jsonResponse({
+    success: true,
+    idea: { id: id, name: name, title: title, category: category, value: '', effort: '', rated_by: '' }
+  });
+}
+
+function handleRateIdea(data) {
+  var id = (data.id || '').toString();
+  var value = (data.value || '').trim().toLowerCase();
+  var effort = (data.effort || '').trim().toLowerCase();
+  var ratedBy = (data.rated_by || '').trim();
+
+  if (!id) return jsonResponse({ success: false, error: 'Missing idea ID' });
+  if (['high', 'low'].indexOf(value) === -1 || ['high', 'low'].indexOf(effort) === -1) {
+    return jsonResponse({ success: false, error: 'Value and effort must be "high" or "low"' });
+  }
+
+  var sheet = getIdeasSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return jsonResponse({ success: false, error: 'Idea not found' });
+
+  var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (ids[i][0].toString() === id) {
+      var row = i + 2;
+      sheet.getRange(row, 5).setValue(value);   // E: Value
+      sheet.getRange(row, 6).setValue(effort);  // F: Effort
+      sheet.getRange(row, 7).setValue(ratedBy); // G: Rated By
+      return jsonResponse({ success: true, value: value, effort: effort });
+    }
+  }
+
+  return jsonResponse({ success: false, error: 'Idea not found' });
 }
 
 // ── High Scores (stored in a separate workbook) ──
