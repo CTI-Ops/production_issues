@@ -237,7 +237,8 @@
 <div class="toast" id="toast"></div>
 
 <script>
-let SCRIPT_URL=localStorage.getItem('prodlog_script_url')||'';
+const DEFAULT_SCRIPT_URL='https://script.google.com/macros/s/AKfycbxDpZl_eocmrSkuP3zYGsV3hEvN8twX-ytJH1bprH7dfGM6UctSztsE-X3NniBe-WHgUQ/exec';
+let SCRIPT_URL=DEFAULT_SCRIPT_URL;
 let IDEAS=[];
 let ratingIdeaId=null;
 let toastTimer=null;
