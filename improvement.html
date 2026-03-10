@@ -152,11 +152,14 @@
   }
   .more-badge:hover{background:rgba(224,149,43,0.22);transform:scale(1.05);}
 
-  /* ── ZOOM STATE ── */
-  .matrix.zoomed{grid-template-columns:1fr;grid-template-rows:1fr;}
-  .matrix.zoomed .quadrant{display:none;}
-  .matrix.zoomed .quadrant.zoom-target{display:flex;min-height:380px;}
-  .matrix.zoomed .quadrant.zoom-target .q-cards{overflow-y:auto;max-height:none;}
+  /* ── ZOOM LEVEL 1 — expanded quadrant ── */
+  .matrix.zoom-1 .quadrant.zoom-target .q-cards{overflow-y:auto;max-height:300px;}
+
+  /* ── ZOOM LEVEL 2 — single quadrant focus ── */
+  .matrix.zoom-2{grid-template-columns:1fr!important;grid-template-rows:1fr!important;}
+  .matrix.zoom-2 .quadrant{display:none;}
+  .matrix.zoom-2 .quadrant.zoom-target{display:flex;min-height:380px;}
+  .matrix.zoom-2 .quadrant.zoom-target .q-cards{overflow-y:auto;max-height:none;}
 
   /* Zoom-back button */
   .zoom-back{
@@ -166,8 +169,8 @@
     align-items:center;gap:0.3rem;
   }
   .zoom-back:hover{border-color:var(--accent);color:var(--accent);}
-  .matrix.zoomed+.matrix-labels-x .zoom-back{display:inline-flex;}
-  .matrix:not(.zoomed)+.matrix-labels-x .zoom-back{display:none;}
+  .matrix.zoom-1+.matrix-labels-x .zoom-back,
+  .matrix.zoom-2+.matrix-labels-x .zoom-back{display:inline-flex;}
 
   @media(max-width:700px){
     .matrix{min-height:340px;}
@@ -213,7 +216,7 @@
     </div>
     <div class="matrix-labels-x">
       <span class="axis-label" style="margin-right:auto;padding-left:1rem;">← Easy</span>
-      <button class="zoom-back" onclick="zoomOut()">← All Quadrants</button>
+      <button class="zoom-back" onclick="zoomReset()">← All Quadrants</button>
       <span class="axis-label">Change Effort</span>
       <span class="axis-label" style="margin-left:auto;padding-right:1rem;">Hard →</span>
     </div>
@@ -291,8 +294,10 @@ let SCRIPT_URL=DEFAULT_SCRIPT_URL;
 let IDEAS=[];
 let ratingIdeaId=null;
 let toastTimer=null;
-let zoomedQuadrant=null;
-const MAX_CHIPS=5; // max visible chips per quadrant before showing "+N more"
+let zoomLevel=0;   // 0=overview, 1=expanded, 2=focused
+let zoomTarget=null;
+let zoomCooldown=false;
+const CHIP_THRESHOLD=5; // show chips when idea count >= this
 
 async function init(){
   if(SCRIPT_URL){document.getElementById('scriptUrl').value=SCRIPT_URL;await loadIdeas();}
@@ -328,36 +333,48 @@ function renderIdeas(){
   const buckets={'q-implement':[],'q-challenge':[],'q-possible':[],'q-kill':[]};
   IDEAS.forEach(idea=>{
     if(!idea.value||!idea.effort){
-      inbox.appendChild(makeCard(idea,false));
+      inbox.appendChild(makeCard(idea));
       unratedCount++;
     }else{
       buckets[getQuadrant(idea.value,idea.effort)].push(idea);
     }
   });
 
-  // Render each quadrant
-  const isZoomed=zoomedQuadrant!==null;
+  // Render each quadrant based on zoom level
   qids.forEach(qid=>{
     const container=document.getElementById(qid);
     const ideas=buckets[qid];
-    const showFull=isZoomed&&zoomedQuadrant===qid;
-    const useChips=!showFull;
+    const isTarget=zoomTarget===qid;
 
-    if(useChips){
-      // Compact chip mode
-      const visible=ideas.slice(0,MAX_CHIPS);
-      const overflow=ideas.length-MAX_CHIPS;
-      visible.forEach(idea=>container.appendChild(makeChip(idea)));
-      if(overflow>0){
-        const badge=document.createElement('span');
-        badge.className='more-badge';
-        badge.textContent='+'+overflow+' more';
-        badge.onclick=(e)=>{e.stopPropagation();zoomIn(qid);};
-        container.appendChild(badge);
+    if(zoomLevel===0){
+      // Overview: full cards if <threshold, chips + "+N more" if >=threshold
+      if(ideas.length<CHIP_THRESHOLD){
+        ideas.forEach(idea=>container.appendChild(makeCard(idea)));
+      }else{
+        const visible=ideas.slice(0,CHIP_THRESHOLD);
+        const overflow=ideas.length-CHIP_THRESHOLD;
+        visible.forEach(idea=>container.appendChild(makeChip(idea)));
+        if(overflow>0){
+          const badge=document.createElement('span');
+          badge.className='more-badge';
+          badge.textContent='+'+overflow+' more';
+          badge.onclick=(e)=>{e.stopPropagation();zoomTo(qid,2);};
+          container.appendChild(badge);
+        }
+      }
+    }else if(zoomLevel===1){
+      if(isTarget){
+        // Expanded target: full cards, all items
+        ideas.forEach(idea=>container.appendChild(makeCard(idea)));
+      }else{
+        // Other quadrants: compact chips, all items
+        ideas.forEach(idea=>container.appendChild(makeChip(idea)));
       }
     }else{
-      // Full card mode (zoomed in)
-      ideas.forEach(idea=>container.appendChild(makeCard(idea,false)));
+      // Level 2: only target is visible (CSS hides others), full cards
+      if(isTarget){
+        ideas.forEach(idea=>container.appendChild(makeCard(idea)));
+      }
     }
   });
 
@@ -388,20 +405,55 @@ function makeChip(idea){
   return chip;
 }
 
-function zoomIn(qid){
-  zoomedQuadrant=qid;
+// Grid weighting for zoom level 1 based on quadrant position
+const Q_POS={'q-implement':{col:'left',row:'top'},'q-challenge':{col:'right',row:'top'},'q-possible':{col:'left',row:'bottom'},'q-kill':{col:'right',row:'bottom'}};
+
+function applyZoomCSS(){
   const matrix=document.querySelector('.matrix');
-  matrix.classList.add('zoomed');
+  matrix.classList.remove('zoom-1','zoom-2');
+  matrix.style.gridTemplateColumns='';
+  matrix.style.gridTemplateRows='';
   document.querySelectorAll('.quadrant').forEach(q=>q.classList.remove('zoom-target'));
-  document.getElementById(qid).closest('.quadrant').classList.add('zoom-target');
+
+  if(zoomLevel===1&&zoomTarget){
+    matrix.classList.add('zoom-1');
+    const pos=Q_POS[zoomTarget];
+    matrix.style.gridTemplateColumns=pos.col==='left'?'1.5fr 1fr':'1fr 1.5fr';
+    matrix.style.gridTemplateRows=pos.row==='top'?'1.5fr 1fr':'1fr 1.5fr';
+    document.getElementById(zoomTarget).closest('.quadrant').classList.add('zoom-target');
+  }else if(zoomLevel===2&&zoomTarget){
+    matrix.classList.add('zoom-2');
+    document.getElementById(zoomTarget).closest('.quadrant').classList.add('zoom-target');
+  }
+}
+
+function zoomStep(qid,direction){
+  if(direction>0){
+    // Zooming in
+    if(zoomLevel===0){zoomTarget=qid;zoomLevel=1;}
+    else if(zoomLevel===1&&zoomTarget===qid){zoomLevel=2;}
+    else if(zoomLevel===1&&zoomTarget!==qid){zoomTarget=qid;/* stay at 1, switch target */}
+    else{return;}
+  }else{
+    // Zooming out
+    if(zoomLevel===2){zoomLevel=1;}
+    else if(zoomLevel===1){zoomLevel=0;zoomTarget=null;}
+    else{return;}
+  }
+  applyZoomCSS();
   renderIdeas();
 }
 
-function zoomOut(){
-  zoomedQuadrant=null;
-  const matrix=document.querySelector('.matrix');
-  matrix.classList.remove('zoomed');
-  document.querySelectorAll('.quadrant').forEach(q=>q.classList.remove('zoom-target'));
+function zoomTo(qid,level){
+  zoomTarget=level>0?qid:null;
+  zoomLevel=level;
+  applyZoomCSS();
+  renderIdeas();
+}
+
+function zoomReset(){
+  zoomLevel=0;zoomTarget=null;
+  applyZoomCSS();
   renderIdeas();
 }
 
@@ -483,21 +535,27 @@ async function submitRating(){
 function escHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 function showToast(type,msg){const t=document.getElementById('toast');t.textContent=(type==='ok'?'\u2713 ':'\u2717 ')+msg;t.className='toast '+type+' show';if(toastTimer)clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),4000);}
 
-// Close modals on ESC
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(zoomedQuadrant){zoomOut();return;}closeNewModal();closeRateModal();}});
+// Close modals on ESC, zoom reset first
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(zoomLevel>0){zoomReset();return;}closeNewModal();closeRateModal();}});
 
-// Mouse wheel zoom on quadrants
+// Mouse wheel zoom on quadrants (up=zoom in, down=zoom out)
 document.querySelector('.matrix').addEventListener('wheel',e=>{
-  if(e.deltaY>0&&!zoomedQuadrant){
-    // Scroll down = zoom into the quadrant under the cursor
-    const quad=e.target.closest('.quadrant');
-    if(quad){
-      const cardsDiv=quad.querySelector('.q-cards');
-      if(cardsDiv&&cardsDiv.id){e.preventDefault();zoomIn(cardsDiv.id);}
-    }
-  }else if(e.deltaY<0&&zoomedQuadrant){
-    // Scroll up = zoom out
-    e.preventDefault();zoomOut();
+  if(zoomCooldown) return;
+  const quad=e.target.closest('.quadrant');
+  if(!quad) return;
+  const cardsDiv=quad.querySelector('.q-cards');
+  if(!cardsDiv||!cardsDiv.id) return;
+
+  if(e.deltaY<0){
+    // Scroll up = zoom in
+    e.preventDefault();
+    zoomStep(cardsDiv.id,+1);
+    zoomCooldown=true;setTimeout(()=>{zoomCooldown=false;},200);
+  }else if(e.deltaY>0&&zoomLevel>0){
+    // Scroll down = zoom out
+    e.preventDefault();
+    zoomStep(cardsDiv.id,-1);
+    zoomCooldown=true;setTimeout(()=>{zoomCooldown=false;},200);
   }
 },{passive:false});
 
