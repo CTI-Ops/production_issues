@@ -59,6 +59,8 @@ function doPost(e) {
       return handleHighScore(data);
     } else if (data.action === 'add_config') {
       return handleAddConfig(data);
+    } else if (data.action === 'bug_report') {
+      return handleBugReport(data);
     } else {
       return jsonResponse({ success: false, error: 'Unknown action: ' + data.action });
     }
@@ -594,6 +596,28 @@ function getISOWeek(date) {
 function timeToMinutes(t) {
   const parts = t.split(':');
   return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+}
+
+// ── Bug Report (sends email) ──
+function handleBugReport(data) {
+  var page = (data.page || 'Unknown').trim();
+  var desc = (data.description || '').trim();
+  if (!desc) return jsonResponse({ success: false, error: 'Description is required' });
+
+  var subject = 'Bug Report — Production Tools (' + page + ')';
+  var body = 'Page: ' + page + '\n'
+           + 'Date: ' + new Date().toLocaleString() + '\n\n'
+           + 'Description:\n' + desc + '\n';
+
+  if (data.steps) body += '\nSteps to Reproduce:\n' + data.steps.trim() + '\n';
+
+  MailApp.sendEmail({
+    to: 'stephen.pederson@ctigas.com',
+    subject: subject,
+    body: body
+  });
+
+  return jsonResponse({ success: true });
 }
 
 function jsonResponse(obj) {
