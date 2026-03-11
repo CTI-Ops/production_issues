@@ -7,7 +7,15 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0e1117; font-family: 'DM Sans', sans-serif; overflow: hidden; }
+  body { background: #0e1117; font-family: 'DM Sans', sans-serif; overflow: hidden; color: #e6edf3; }
+
+  .page-header { background: #161b22; border-bottom: 1px solid #30363d; padding: 0.9rem 1.5rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; backdrop-filter: blur(12px); }
+  .logo { display: flex; align-items: center; gap: 0.7rem; }
+  .logo-mark { width: 28px; height: 28px; background: #e0952b; border-radius: 6px; display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.75rem; color: #000; }
+  .logo-text { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; }
+  .nav-link { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: #e0952b; text-decoration: none; padding: 0.3rem 0.6rem; border: 1px solid #30363d; border-radius: 6px; transition: all 0.15s; }
+  .nav-link:hover { background: rgba(224,149,43,0.12); border-color: #e0952b; }
+  .header-meta { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: #484f58; }
 
   #arcade-overlay {
     position: fixed; inset: 0; z-index: 9999;
@@ -145,6 +153,11 @@
 </style>
 </head>
 <body>
+
+<header class="page-header">
+  <div class="logo"><div class="logo-mark">A</div><div class="logo-text">Arcade</div></div>
+  <div style="display:flex;align-items:center;gap:0.8rem;"><a href="index.html" class="nav-link">Home</a><a href="tracker.html" class="nav-link">Tracker</a><div class="header-meta" id="clock"></div></div>
+</header>
 
 <div id="arcade-overlay">
   <div id="arcade-container">
@@ -2970,6 +2983,9 @@ class SpaceInvaders {
 document.addEventListener('mousedown', function(e) {
   if (e.button === 1) { e.preventDefault(); window.location.href = 'index.html'; }
 });
+
+function updateClock(){document.getElementById('clock').textContent=new Date().toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});}
+updateClock(); setInterval(updateClock,1000);
 </script>
 </body>
 </html>

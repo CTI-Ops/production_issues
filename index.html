@@ -15,10 +15,12 @@
   }
   html { font-size: 15px; }
   body { font-family: 'DM Sans', -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.5; display: flex; flex-direction: column; }
-  header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 0.9rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+  header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 0.9rem 1.5rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; backdrop-filter: blur(12px); }
   .logo { display: flex; align-items: center; gap: 0.7rem; }
   .logo-mark { width: 28px; height: 28px; background: var(--accent); border-radius: 6px; display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.75rem; color: #000; }
   .logo-text { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; }
+  .nav-link { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--accent); text-decoration: none; padding: 0.3rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; transition: all 0.15s; }
+  .nav-link:hover { background: var(--accent-glow); border-color: var(--accent); }
   .header-meta { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--text-muted); }
 
   main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 2rem 1rem; }
@@ -43,11 +45,8 @@
 <body>
 
 <header>
-  <div class="logo">
-    <div class="logo-mark" id="logoMark">P</div>
-    <span class="logo-text">Production Hub</span>
-  </div>
-  <div class="header-meta" id="clock"></div>
+  <div class="logo"><div class="logo-mark" id="logoMark">P</div><span class="logo-text">Production Hub</span></div>
+  <div style="display:flex;align-items:center;gap:0.8rem;"><a href="tracker.html" class="nav-link">Tracker</a><a href="dashboard.html" class="nav-link">Dashboard</a><div class="header-meta" id="clock"></div></div>
 </header>
 
 <main>
