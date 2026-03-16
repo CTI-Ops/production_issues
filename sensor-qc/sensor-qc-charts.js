@@ -747,22 +747,73 @@ function renderMultiJobCharts(tier) {
     } else {
         // Many/Bulk: trend line + heatmap + histogram/outlier
 
-        // 1. Pass Rate Trend line chart
+        // 1. Pass Rate Trend line chart (with integrated 2σ band + outlier markers for bulk)
         const trendCtx = document.getElementById('trendChart').getContext('2d');
         const sortedJobs = [...jobs].sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]));
         const jobLabels = sortedJobs.map(([j]) => j);
         const passRates = sortedJobs.map(([, d]) => d.stats.passRate);
 
-        const trendDatasets = [{
+        // Compute stats for outlier detection (bulk)
+        const mean = calculateMean(passRates);
+        const stdDev = calculateStdDev(passRates);
+        const upperBand = Math.min(mean + 2 * stdDev, 100);
+        const lowerBand = Math.max(mean - 2 * stdDev, 0);
+
+        // Per-point styling: red triangles for outliers, blue circles for normal
+        const isOutlier = passRates.map(r => Math.abs(r - mean) > 2 * stdDev);
+        const outlierCount = isOutlier.filter(Boolean).length;
+
+        const trendDatasets = [];
+
+        // 2σ band (rendered first so it sits behind everything)
+        if (tier === 'bulk' && passRates.length >= 5) {
+            trendDatasets.push({
+                label: '2σ Upper',
+                data: passRates.map(() => upperBand),
+                borderColor: 'transparent',
+                backgroundColor: 'rgba(102, 126, 234, 0.10)',
+                borderWidth: 0,
+                pointRadius: 0,
+                fill: false,
+                tension: 0
+            });
+            trendDatasets.push({
+                label: '2σ Band',
+                data: passRates.map(() => lowerBand),
+                borderColor: 'rgba(102, 126, 234, 0.25)',
+                backgroundColor: 'rgba(102, 126, 234, 0.10)',
+                borderWidth: 1,
+                borderDash: [3, 3],
+                pointRadius: 0,
+                fill: '-1',
+                tension: 0
+            });
+            // Mean line
+            trendDatasets.push({
+                label: `Mean (${mean.toFixed(1)}%)`,
+                data: passRates.map(() => mean),
+                borderColor: 'rgba(102, 126, 234, 0.4)',
+                borderWidth: 1,
+                borderDash: [6, 4],
+                pointRadius: 0,
+                fill: false,
+                tension: 0
+            });
+        }
+
+        trendDatasets.push({
             label: 'Overall Pass Rate',
             data: passRates,
             borderColor: '#667eea',
             backgroundColor: '#667eea',
             borderWidth: 2,
-            pointRadius: 4,
+            pointRadius: tier === 'bulk' ? passRates.map((_, i) => isOutlier[i] ? 8 : 4) : 4,
+            pointStyle: tier === 'bulk' ? passRates.map((_, i) => isOutlier[i] ? 'triangle' : 'circle') : 'circle',
+            pointBackgroundColor: tier === 'bulk' ? passRates.map((_, i) => isOutlier[i] ? '#ef4444' : '#667eea') : '#667eea',
+            pointBorderColor: tier === 'bulk' ? passRates.map((_, i) => isOutlier[i] ? '#ef4444' : '#667eea') : '#667eea',
             fill: false,
             tension: 0.2
-        }];
+        });
 
         // Add per-test lines if available
         const maxTestAcross = Math.max(...sortedJobs.map(([, d]) => d.stats.maxTests));
@@ -800,17 +851,41 @@ function renderMultiJobCharts(tier) {
             });
         }
 
-        // Dynamic Y-axis: zoom into the data range for better readability
+        // Dynamic Y-axis: zoom into the data range but include the 2σ band
         const allTrendValues = trendDatasets.flatMap(ds => ds.data).filter(v => v !== null && !isNaN(v));
         const minRate = allTrendValues.length > 0 ? Math.min(...allTrendValues) : 0;
         const trendYMin = Math.max(0, Math.floor(minRate / 5) * 5 - 5);
+
+        // Update chart title for trend chart card
+        const trendCard = document.getElementById('trendChart').closest('.card');
+        if (trendCard && tier === 'bulk') {
+            trendCard.querySelector('.card-title').textContent = '📈 Pass Rate Trend (with 2σ Outlier Detection)';
+        }
 
         charts.trend = new Chart(trendCtx, {
             type: 'line',
             data: { labels: jobLabels, datasets: trendDatasets },
             options: {
                 responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { display: true, position: 'top' }, title: { display: true, text: 'Pass Rate Across Jobs' } },
+                plugins: {
+                    legend: {
+                        display: true, position: 'top',
+                        labels: {
+                            filter: item => !['2σ Upper'].includes(item.text)
+                        }
+                    },
+                    title: { display: true, text: tier === 'bulk' ? `Pass Rate Across Jobs (μ=${mean.toFixed(1)}%, σ=${stdDev.toFixed(1)}%, ${outlierCount} outlier${outlierCount !== 1 ? 's' : ''})` : 'Pass Rate Across Jobs' },
+                    tooltip: {
+                        callbacks: {
+                            afterLabel: ctx => {
+                                if (tier === 'bulk' && ctx.datasetIndex === (trendDatasets.findIndex(d => d.label === 'Overall Pass Rate')) && isOutlier[ctx.dataIndex]) {
+                                    return '⚠ Outlier (>2σ from mean)';
+                                }
+                                return '';
+                            }
+                        }
+                    }
+                },
                 scales: {
                     y: { min: trendYMin, max: 100, title: { display: true, text: 'Pass Rate (%)' } },
                     x: { title: { display: true, text: 'Job #' } }
@@ -840,19 +915,21 @@ function renderMultiJobCharts(tier) {
         heatHTML += '<th>Overall</th></tr></thead><tbody>';
 
         heatJobs.forEach(([jobNum, data]) => {
+            const totalSensors = data.stats.counted || data.results.length;
             heatHTML += `<tr><td><strong>${jobNum}</strong></td>`;
             for (let t = 1; t <= maxT; t++) {
                 const ts = data.stats.testStats[t];
                 if (ts && ts.total > 0) {
                     const rate = (ts.passed / ts.total * 100);
                     const color = rate >= 90 ? '#10b981' : rate >= 70 ? '#f59e0b' : '#ef4444';
-                    heatHTML += `<td class="heatmap-cell" style="background:${color};">${rate.toFixed(0)}%</td>`;
+                    heatHTML += `<td class="heatmap-cell" style="background:${color};" title="${ts.passed}/${ts.total} sensors">${rate.toFixed(0)}%<span class="heatmap-n">${ts.total}</span></td>`;
                 } else {
                     heatHTML += '<td>—</td>';
                 }
             }
             const overallColor = data.stats.passRate >= 90 ? '#10b981' : data.stats.passRate >= 70 ? '#f59e0b' : '#ef4444';
-            heatHTML += `<td class="heatmap-cell" style="background:${overallColor};">${data.stats.passRate.toFixed(0)}%</td></tr>`;
+            const overallPassed = data.stats.passed || 0;
+            heatHTML += `<td class="heatmap-cell" style="background:${overallColor};" title="${overallPassed}/${totalSensors} sensors">${data.stats.passRate.toFixed(0)}%<span class="heatmap-n">${totalSensors}</span></td></tr>`;
         });
         heatHTML += '</tbody></table>';
         heatmapDiv.innerHTML = heatHTML;
@@ -894,62 +971,123 @@ function renderMultiJobCharts(tier) {
             }
         });
 
-        // 4. Pie chart area → histogram of pass rates (many) or outlier scatter (bulk)
+        // 4. Pie chart area → Failure Type Trend Lines (bulk) or histogram (many)
         const pieCtx = document.getElementById('pieChart').getContext('2d');
         document.getElementById('statusSummary').innerHTML = '';
 
         if (tier === 'bulk') {
-            // Scatter plot with outlier highlighting
-            const mean = calculateMean(passRates);
-            const stdDev = calculateStdDev(passRates);
-            const threshold2sd = stdDev * 2;
+            // Failure type trend lines — shows how each failure mode changes across jobs
+            const failTrendStatuses = ['FL', 'FH', 'OT-', 'TT', 'OT+', 'BL', 'FAIL'];
+            const failTrendDatasets = failTrendStatuses.map(s => ({
+                label: s,
+                data: sortedJobs.map(([, d]) => {
+                    const count = d.results.filter(r => r['Pass/Fail'] === s).length;
+                    const total = d.stats.counted || d.results.length;
+                    return total > 0 ? parseFloat((count / total * 100).toFixed(2)) : 0;
+                }),
+                borderColor: STATUS_COLORS[s] || '#999',
+                backgroundColor: STATUS_COLORS[s] || '#999',
+                borderWidth: 2,
+                pointRadius: 3,
+                fill: false,
+                tension: 0.2
+            })).filter(ds => ds.data.some(v => v > 0));
 
-            const normalPoints = [];
-            const outlierPoints = [];
-            sortedJobs.forEach(([jobNum, data], idx) => {
-                const point = { x: idx, y: data.stats.passRate };
-                if (Math.abs(data.stats.passRate - mean) > threshold2sd) {
-                    outlierPoints.push(point);
-                } else {
-                    normalPoints.push(point);
-                }
-            });
+            const pieCard = document.getElementById('pieChart').closest('.card');
+            if (pieCard) pieCard.querySelector('.card-title').textContent = '📉 Failure Type Trends';
 
             charts.pie = new Chart(pieCtx, {
-                type: 'scatter',
-                data: {
-                    datasets: [
-                        { label: 'Normal', data: normalPoints, backgroundColor: '#667eea', pointRadius: 5 },
-                        { label: 'Outlier (>2σ)', data: outlierPoints, backgroundColor: '#ef4444', pointRadius: 7, pointStyle: 'triangle' }
-                    ]
-                },
+                type: 'line',
+                data: { labels: jobLabels, datasets: failTrendDatasets },
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     plugins: {
-                        legend: { display: true },
-                        title: { display: true, text: 'Pass Rate Outliers' },
+                        legend: { display: true, position: 'top' },
+                        title: { display: true, text: 'Failure Rate by Type Across Jobs' },
                         tooltip: {
                             callbacks: {
-                                label: ctx => {
-                                    const idx = ctx.raw.x;
-                                    return `Job ${sortedJobs[idx][0]}: ${ctx.raw.y.toFixed(1)}%`;
-                                }
+                                label: ctx => `${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%`
                             }
                         }
                     },
                     scales: {
-                        y: { min: 0, max: 100, title: { display: true, text: 'Pass Rate (%)' } },
-                        x: { display: false }
+                        y: { beginAtZero: true, title: { display: true, text: 'Fail Rate (%)' }, ticks: { callback: v => v + '%' } },
+                        x: { title: { display: true, text: 'Job #' } }
                     }
                 }
             });
-            document.getElementById('statusSummary').innerHTML = `
-                <div class="status-summary-item"><div class="left">Mean</div><div class="count">${mean.toFixed(1)}%</div></div>
-                <div class="status-summary-item"><div class="left">Std Dev</div><div class="count">${stdDev.toFixed(1)}%</div></div>
-                <div class="status-summary-item"><div class="left">Outliers</div><div class="count">${outlierPoints.length}</div></div>
-            `;
+
+            // Show summary stats in the statusSummary area
+            const totalAllResults = jobs.flatMap(([, d]) => d.results).length;
+            const failTypeCounts = {};
+            jobs.flatMap(([, d]) => d.results).forEach(r => {
+                const s = r['Pass/Fail'];
+                if (s !== 'PASS') failTypeCounts[s] = (failTypeCounts[s] || 0) + 1;
+            });
+            const sortedFailTypes = Object.entries(failTypeCounts).sort((a, b) => b[1] - a[1]);
+            document.getElementById('statusSummary').innerHTML = sortedFailTypes.map(([status, count]) => {
+                const pct = (count / totalAllResults * 100).toFixed(1);
+                return `<div class="status-summary-item"><div class="left"><span class="status-pill status-${status}">${status}</span></div><div><span class="count">${count}</span> <span class="pct">(${pct}%)</span></div></div>`;
+            }).join('');
+
+            // 5. Worst Channels chart — dynamically created canvas in new card
+            let worstChannelsCard = document.getElementById('worstChannelsCard');
+            if (!worstChannelsCard) {
+                const pieGridRow = document.getElementById('pieChart').closest('.charts-grid');
+                worstChannelsCard = document.createElement('div');
+                worstChannelsCard.id = 'worstChannelsCard';
+                worstChannelsCard.className = 'card';
+                worstChannelsCard.innerHTML = '<div class="card-title">🔴 Most Failing Channels</div><div class="chart-container" style="height: 300px;"><canvas id="worstChannelsChart"></canvas></div>';
+                pieGridRow.appendChild(worstChannelsCard);
+            }
+
+            const channelFailCounts = {};
+            jobs.forEach(([, d]) => {
+                d.results.forEach(r => {
+                    if (r['Pass/Fail'] !== 'PASS') {
+                        const ch = r['Serial Number'] || r['Channel'] || 'Unknown';
+                        channelFailCounts[ch] = (channelFailCounts[ch] || 0) + 1;
+                    }
+                });
+            });
+
+            const worstChannels = Object.entries(channelFailCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 15);
+
+            if (worstChannels.length > 0) {
+                const wcCtx = document.getElementById('worstChannelsChart').getContext('2d');
+                charts.worstChannels = new Chart(wcCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: worstChannels.map(([ch]) => `Ch ${ch}`),
+                        datasets: [{
+                            label: 'Failures',
+                            data: worstChannels.map(([, c]) => c),
+                            backgroundColor: worstChannels.map(([, c]) => {
+                                const maxFail = worstChannels[0][1];
+                                const intensity = 0.4 + 0.6 * (c / maxFail);
+                                return `rgba(239, 68, 68, ${intensity})`;
+                            }),
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            title: { display: true, text: 'Top 15 Most Failing Channels (All Jobs)' }
+                        },
+                        scales: {
+                            x: { beginAtZero: true, title: { display: true, text: 'Total Failures' }, ticks: { stepSize: 1 } },
+                            y: { title: { display: false } }
+                        }
+                    }
+                });
+            }
         } else {
-            // Histogram of pass rates
+            // Histogram of pass rates (many tier)
             const histBins = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100.1];
             const histLabels = histBins.slice(0, -1).map((b, i) => `${b}-${Math.min(histBins[i+1], 100)}%`);
             const histogram = new Array(histBins.length - 1).fill(0);

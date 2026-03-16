@@ -650,5 +650,25 @@ function resetMultiJobView() {
         const title = distCard.querySelector('.card-title');
         if (title) title.textContent = '📊 120s Distribution';
     }
+    // Reset trend chart title
+    const trendCard = document.getElementById('trendChart')?.closest('.card');
+    if (trendCard) {
+        const title = trendCard.querySelector('.card-title');
+        if (title) title.textContent = '📈 Sensor Readings by Test';
+    }
+    // Reset pie chart title
+    const pieCard = document.getElementById('pieChart')?.closest('.card');
+    if (pieCard) {
+        const title = pieCard.querySelector('.card-title');
+        if (title) title.textContent = '🥧 Status Distribution';
+    }
+    // Remove worst channels card if present
+    const worstCard = document.getElementById('worstChannelsCard');
+    if (worstCard) worstCard.remove();
+    // Destroy worst channels chart
+    if (charts.worstChannels) {
+        charts.worstChannels.destroy();
+        delete charts.worstChannels;
+    }
 }
 
