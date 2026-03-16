@@ -660,8 +660,8 @@ function renderMultiJobCharts(tier) {
                         const st = row[`Status(T${t})`];
                         if (st) {
                             total++;
-                            const primary = st.split(',')[0];
-                            if (primary === 'PASS' || primary === 'TT' || primary === 'OT+') passed++;
+                            const codes = st.split(',');
+                            if (!codes.some(c => ['FL', 'FH', 'OT-', 'FAIL'].includes(c))) passed++;
                         }
                     });
                     return total > 0 ? parseFloat((passed / total * 100).toFixed(1)) : null;
