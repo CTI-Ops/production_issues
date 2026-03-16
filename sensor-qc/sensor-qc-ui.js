@@ -662,13 +662,5 @@ function resetMultiJobView() {
         const title = pieCard.querySelector('.card-title');
         if (title) title.textContent = '🥧 Status Distribution';
     }
-    // Remove worst channels card if present
-    const worstCard = document.getElementById('worstChannelsCard');
-    if (worstCard) worstCard.remove();
-    // Destroy worst channels chart
-    if (charts.worstChannels) {
-        charts.worstChannels.destroy();
-        delete charts.worstChannels;
-    }
 }
 
