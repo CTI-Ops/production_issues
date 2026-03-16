@@ -3745,6 +3745,8 @@ else if (typeof exports === 'object'){
                 heatmapDiv.className = 'heatmap-container';
                 distCanvas.parentElement.appendChild(heatmapDiv);
             }
+            distCanvas.parentElement.style.height = 'auto';
+            distCanvas.parentElement.style.overflow = 'auto';
 
             const heatJobs = sortedJobs;
             const maxT = Math.max(...heatJobs.map(([, d]) => d.stats.maxTests));
@@ -4192,7 +4194,11 @@ else if (typeof exports === 'object'){
         const heatmapDiv = document.getElementById('multiJobHeatmap');
         if (heatmapDiv) heatmapDiv.remove();
         const distCanvas = document.getElementById('distributionChart');
-        if (distCanvas) distCanvas.style.display = '';
+        if (distCanvas) {
+            distCanvas.style.display = '';
+            distCanvas.parentElement.style.height = '350px';
+            distCanvas.parentElement.style.overflow = 'hidden';
+        }
         // Reset chart titles
         const distCard = distCanvas?.closest('.card');
         if (distCard) {
