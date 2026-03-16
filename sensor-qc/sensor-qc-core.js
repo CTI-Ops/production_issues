@@ -559,10 +559,9 @@ function runMultiJobAnalysis(jobNumbers, thresholdSet) {
                 const st = r[`Status(T${t})`];
                 if (st) {
                     tTotal++;
-                    const primary = st.split(',')[0];
-                    if (primary === 'PASS') tPass++;
-                    else if (['FL', 'FH', 'OT-', 'FAIL'].includes(primary)) tFail++;
-                    else tPass++; // TT, OT+ count as pass
+                    const codes = st.split(',');
+                    if (codes.some(c => ['FL', 'FH', 'OT-', 'FAIL'].includes(c))) tFail++;
+                    else tPass++;
                 }
             });
             testStats[t] = { passed: tPass, failed: tFail, total: tTotal };
