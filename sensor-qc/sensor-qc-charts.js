@@ -976,43 +976,67 @@ function renderMultiJobCharts(tier) {
         document.getElementById('statusSummary').innerHTML = '';
 
         if (tier === 'bulk') {
-            // Failure type trend lines — shows how each failure mode changes across jobs
+            // Stacked area: failure composition as % of total failures per job
+            // This normalizes out the volume difference so you can see shifts in failure mix
             const failTrendStatuses = ['FL', 'FH', 'OT-', 'TT', 'OT+', 'BL', 'FAIL'];
+
+            // Compute per-job failure counts by type
+            const perJobFailCounts = sortedJobs.map(([, d]) => {
+                const counts = {};
+                let totalFails = 0;
+                failTrendStatuses.forEach(s => {
+                    const c = d.results.filter(r => r['Pass/Fail'] === s).length;
+                    counts[s] = c;
+                    totalFails += c;
+                });
+                counts._total = totalFails;
+                return counts;
+            });
+
+            // Build datasets as % of failures (not % of all sensors)
             const failTrendDatasets = failTrendStatuses.map(s => ({
                 label: s,
-                data: sortedJobs.map(([, d]) => {
-                    const count = d.results.filter(r => r['Pass/Fail'] === s).length;
-                    const total = d.stats.counted || d.results.length;
-                    return total > 0 ? parseFloat((count / total * 100).toFixed(2)) : 0;
-                }),
+                data: perJobFailCounts.map(c => c._total > 0 ? parseFloat((c[s] / c._total * 100).toFixed(1)) : 0),
                 borderColor: STATUS_COLORS[s] || '#999',
-                backgroundColor: STATUS_COLORS[s] || '#999',
-                borderWidth: 2,
-                pointRadius: 3,
-                fill: false,
-                tension: 0.2
+                backgroundColor: (STATUS_COLORS[s] || '#999') + '80',
+                borderWidth: 1.5,
+                pointRadius: 0,
+                fill: true,
+                tension: 0.3
             })).filter(ds => ds.data.some(v => v > 0));
 
             const pieCard = document.getElementById('pieChart').closest('.card');
-            if (pieCard) pieCard.querySelector('.card-title').textContent = '📉 Failure Type Trends';
+            if (pieCard) pieCard.querySelector('.card-title').textContent = '📉 Failure Composition Trend';
+
+            // Thin out x-axis labels for readability
+            const labelInterval = Math.max(1, Math.floor(jobLabels.length / 20));
+            const thinLabels = jobLabels.map((l, i) => i % labelInterval === 0 ? l : '');
 
             charts.pie = new Chart(pieCtx, {
                 type: 'line',
-                data: { labels: jobLabels, datasets: failTrendDatasets },
+                data: { labels: thinLabels, datasets: failTrendDatasets },
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     plugins: {
                         legend: { display: true, position: 'top' },
-                        title: { display: true, text: 'Failure Rate by Type Across Jobs' },
+                        title: { display: true, text: 'Failure Composition (% of Failures by Type)' },
                         tooltip: {
+                            mode: 'index',
                             callbacks: {
-                                label: ctx => `${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%`
+                                title: ctxs => `Job ${jobLabels[ctxs[0].dataIndex]}`,
+                                label: ctx => `${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%`,
+                                footer: ctxs => {
+                                    const idx = ctxs[0].dataIndex;
+                                    const totalFails = perJobFailCounts[idx]._total;
+                                    const totalSensors = sortedJobs[idx][1].stats.counted || sortedJobs[idx][1].results.length;
+                                    return `Total failures: ${totalFails}/${totalSensors} sensors`;
+                                }
                             }
                         }
                     },
                     scales: {
-                        y: { beginAtZero: true, title: { display: true, text: 'Fail Rate (%)' }, ticks: { callback: v => v + '%' } },
-                        x: { title: { display: true, text: 'Job #' } }
+                        y: { stacked: true, min: 0, max: 100, title: { display: true, text: '% of Failures' }, ticks: { callback: v => v + '%' } },
+                        x: { stacked: true, title: { display: true, text: 'Job #' } }
                     }
                 }
             });
@@ -1029,63 +1053,6 @@ function renderMultiJobCharts(tier) {
                 const pct = (count / totalAllResults * 100).toFixed(1);
                 return `<div class="status-summary-item"><div class="left"><span class="status-pill status-${status}">${status}</span></div><div><span class="count">${count}</span> <span class="pct">(${pct}%)</span></div></div>`;
             }).join('');
-
-            // 5. Worst Channels chart — dynamically created canvas in new card
-            let worstChannelsCard = document.getElementById('worstChannelsCard');
-            if (!worstChannelsCard) {
-                const pieGridRow = document.getElementById('pieChart').closest('.charts-grid');
-                worstChannelsCard = document.createElement('div');
-                worstChannelsCard.id = 'worstChannelsCard';
-                worstChannelsCard.className = 'card';
-                worstChannelsCard.innerHTML = '<div class="card-title">🔴 Most Failing Channels</div><div class="chart-container" style="height: 300px;"><canvas id="worstChannelsChart"></canvas></div>';
-                pieGridRow.appendChild(worstChannelsCard);
-            }
-
-            const channelFailCounts = {};
-            jobs.forEach(([, d]) => {
-                d.results.forEach(r => {
-                    if (r['Pass/Fail'] !== 'PASS') {
-                        const ch = r['Serial Number'] || r['Channel'] || 'Unknown';
-                        channelFailCounts[ch] = (channelFailCounts[ch] || 0) + 1;
-                    }
-                });
-            });
-
-            const worstChannels = Object.entries(channelFailCounts)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 15);
-
-            if (worstChannels.length > 0) {
-                const wcCtx = document.getElementById('worstChannelsChart').getContext('2d');
-                charts.worstChannels = new Chart(wcCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: worstChannels.map(([ch]) => `Ch ${ch}`),
-                        datasets: [{
-                            label: 'Failures',
-                            data: worstChannels.map(([, c]) => c),
-                            backgroundColor: worstChannels.map(([, c]) => {
-                                const maxFail = worstChannels[0][1];
-                                const intensity = 0.4 + 0.6 * (c / maxFail);
-                                return `rgba(239, 68, 68, ${intensity})`;
-                            }),
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        indexAxis: 'y',
-                        responsive: true, maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            title: { display: true, text: 'Top 15 Most Failing Channels (All Jobs)' }
-                        },
-                        scales: {
-                            x: { beginAtZero: true, title: { display: true, text: 'Total Failures' }, ticks: { stepSize: 1 } },
-                            y: { title: { display: false } }
-                        }
-                    }
-                });
-            }
         } else {
             // Histogram of pass rates (many tier)
             const histBins = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100.1];
