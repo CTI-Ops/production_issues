@@ -871,10 +871,14 @@ function renderMultiJobCharts(tier) {
                     legend: {
                         display: true, position: 'top',
                         labels: {
-                            filter: item => !['2σ Upper'].includes(item.text)
+                            filter: item => !['2σ Upper'].includes(item.text),
+                            boxWidth: 12,
+                            boxHeight: 8,
+                            font: { size: 10 },
+                            padding: 6
                         }
                     },
-                    title: { display: true, text: tier === 'bulk' ? `Pass Rate Across Jobs (μ=${mean.toFixed(1)}%, σ=${stdDev.toFixed(1)}%, ${outlierCount} outlier${outlierCount !== 1 ? 's' : ''})` : 'Pass Rate Across Jobs' },
+                    title: { display: true, text: tier === 'bulk' ? `Pass Rate Across Jobs (μ=${mean.toFixed(1)}%, σ=${stdDev.toFixed(1)}%, ${outlierCount} outlier${outlierCount !== 1 ? 's' : ''})` : 'Pass Rate Across Jobs', font: { size: 12 } },
                     tooltip: {
                         callbacks: {
                             afterLabel: ctx => {
