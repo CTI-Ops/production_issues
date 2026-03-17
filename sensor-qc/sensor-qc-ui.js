@@ -383,7 +383,12 @@ function renderJobChips(jobNumbers) {
         bulk: 'Trend Mode'
     };
     const tierClass = `tier-${tier}`;
-    badge.innerHTML = `<span class="tier-badge ${tierClass}">${jobNumbers.length} jobs — ${tierLabels[tier] || ''}</span>`;
+    const modeRows = [
+        { key: 'few', label: 'Comparison Mode', range: '2–5 jobs' },
+        { key: 'many', label: 'Aggregated Mode', range: '6–15 jobs' },
+        { key: 'bulk', label: 'Trend Mode', range: '16+ jobs' }
+    ].map(m => `<div class="mode-tip-row${m.key === tier ? ' mode-tip-active' : ''}"><span class="mode-tip-label">${m.label}</span><span class="mode-tip-range">${m.range}</span></div>`).join('');
+    badge.innerHTML = `<span class="tier-badge ${tierClass}" style="cursor: help;">${jobNumbers.length} jobs — ${tierLabels[tier] || ''}<div class="mode-tooltip">${modeRows}</div></span>`;
 }
 
 function removeJobChip(jobNumber) {
