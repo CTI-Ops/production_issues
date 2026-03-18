@@ -376,19 +376,30 @@ function renderJobChips(jobNumbers) {
         `<span class="job-chip">${j}<span class="chip-remove" onclick="removeJobChip('${j}')">&times;</span></span>`
     ).join('') + (remaining > 0 ? `<span class="job-chip">+${remaining} more</span>` : '');
 
-    const tier = getDisplayTier(jobNumbers.length);
+    const baseTier = getDisplayTier(jobNumbers.length);
+    const effectiveTier = getEffectiveTier(baseTier, jobNumbers.length);
     const tierLabels = {
         few: 'Comparison Mode',
         many: 'Aggregated Mode',
         bulk: 'Trend Mode'
     };
-    const tierClass = `tier-${tier}`;
+    const tierClass = `tier-${effectiveTier}`;
     const modeRows = [
         { key: 'few', label: 'Comparison Mode', range: '2–5 jobs' },
         { key: 'many', label: 'Aggregated Mode', range: '6–15 jobs' },
         { key: 'bulk', label: 'Trend Mode', range: '16+ jobs' }
-    ].map(m => `<div class="mode-tip-row${m.key === tier ? ' mode-tip-active' : ''}"><span class="mode-tip-label">${m.label}</span><span class="mode-tip-range">${m.range}</span></div>`).join('');
-    badge.innerHTML = `<span class="tier-badge ${tierClass}" style="cursor: help;">${jobNumbers.length} jobs — ${tierLabels[tier] || ''}<div class="mode-tooltip">${modeRows}</div></span>`;
+    ].map(m => `<div class="mode-tip-row${m.key === effectiveTier ? ' mode-tip-active' : ''}"><span class="mode-tip-label">${m.label}</span><span class="mode-tip-range">${m.range}</span></div>`).join('');
+    badge.innerHTML = `<span class="tier-badge ${tierClass}" style="cursor: help;">${jobNumbers.length} jobs — ${tierLabels[effectiveTier] || ''}<div class="mode-tooltip">${modeRows}</div></span>`;
+
+    // Show/hide mode override dropdown for 6+ jobs
+    const overrideContainer = document.getElementById('modeOverrideContainer');
+    if (overrideContainer) {
+        if (jobNumbers.length >= 6) {
+            overrideContainer.classList.remove('hidden');
+        } else {
+            overrideContainer.classList.add('hidden');
+        }
+    }
 }
 
 function removeJobChip(jobNumber) {
@@ -440,7 +451,7 @@ function renderMultiJobMetrics(tier) {
         grid.innerHTML = html;
 
     } else if (tier === 'many' || tier === 'bulk') {
-        // Aggregated summary metrics
+        // Shared computations
         const passRates = jobs.map(([, d]) => d.stats.passRate);
         const totalSensors = jobs.reduce((s, [, d]) => s + d.stats.total, 0);
         const mean = calculateMean(passRates);
@@ -449,26 +460,39 @@ function renderMultiJobMetrics(tier) {
         const min = Math.min(...passRates);
         const max = Math.max(...passRates);
 
-        // Trend direction (simple linear)
-        let trendDir = 'Stable';
-        if (jobs.length >= 3) {
-            const n = passRates.length;
-            const xMean = (n - 1) / 2;
-            const yMean = mean;
-            let num = 0, den = 0;
-            passRates.forEach((y, i) => { num += (i - xMean) * (y - yMean); den += (i - xMean) ** 2; });
-            const slope = den !== 0 ? num / den : 0;
-            if (slope > 1) trendDir = 'Improving';
-            else if (slope < -1) trendDir = 'Declining';
-        }
+        if (tier === 'many') {
+            // AGGREGATED MODE: distribution-focused metrics
+            const skew = calculateSkewness(passRates);
+            const { q1, q3, iqr } = calculateIQR(passRates);
+            const skewLabel = skew < -0.5 ? 'Left-skewed' : skew > 0.5 ? 'Right-skewed' : 'Symmetric';
+            const skewIcon = skew < -0.5 ? '◀' : skew > 0.5 ? '▶' : '◆';
 
-        grid.innerHTML = `
-            <div class="metric info"><div class="metric-label">Total Jobs</div><div class="metric-value">${jobs.length}</div></div>
-            <div class="metric"><div class="metric-label">Total Sensors</div><div class="metric-value">${totalSensors}</div></div>
-            <div class="metric success"><div class="metric-label">${tier === 'bulk' ? 'Mean' : 'Avg'} Pass Rate</div><div class="metric-value">${mean.toFixed(1)}%</div><div class="metric-delta">Median: ${median.toFixed(1)}%</div></div>
-            <div class="metric danger"><div class="metric-label">Pass Rate Range</div><div class="metric-value">${min.toFixed(1)}–${max.toFixed(1)}%</div><div class="metric-delta">Std Dev: ${stdDev.toFixed(1)}%</div></div>
-            ${tier === 'bulk' ? `<div class="metric"><div class="metric-label">Trend</div><div class="metric-value" style="font-size: 1rem;">${trendDir}</div></div>` : ''}
-        `;
+            grid.innerHTML = `
+                <div class="metric info"><div class="metric-label">Total Jobs</div><div class="metric-value">${jobs.length}</div></div>
+                <div class="metric"><div class="metric-label">Total Sensors</div><div class="metric-value">${totalSensors}</div></div>
+                <div class="metric success"><div class="metric-label">Avg Pass Rate</div><div class="metric-value">${mean.toFixed(1)}%</div><div class="metric-delta">Median: ${median.toFixed(1)}%</div></div>
+                <div class="metric danger"><div class="metric-label">Pass Rate Spread</div><div class="metric-value">${min.toFixed(1)}–${max.toFixed(1)}%</div><div class="metric-delta">Std Dev: ${stdDev.toFixed(1)}%</div></div>
+                <div class="metric"><div class="metric-label">Distribution</div><div class="metric-value" style="font-size: 0.95rem;">${skewIcon} ${skewLabel}</div><div class="metric-delta">IQR: ${iqr.toFixed(1)}% (${q1.toFixed(0)}–${q3.toFixed(0)}%)</div></div>
+            `;
+        } else {
+            // TREND MODE: process monitoring metrics
+            const slope = calculateLinearSlope(passRates);
+            const trendDir = slope > 1 ? 'Improving' : slope < -1 ? 'Declining' : 'Stable';
+            const trendColor = slope > 1 ? 'var(--success)' : slope < -1 ? 'var(--danger)' : 'var(--info)';
+            const trendArrow = slope > 1 ? '↑' : slope < -1 ? '↓' : '→';
+            const cv = calculateCv(passRates);
+            const stabilityLabel = cv < 5 ? 'Stable' : cv < 10 ? 'Moderate' : 'Unstable';
+            const stabilityColor = cv < 5 ? 'var(--success)' : cv < 10 ? 'var(--warning)' : 'var(--danger)';
+
+            grid.innerHTML = `
+                <div class="metric info"><div class="metric-label">Total Jobs</div><div class="metric-value">${jobs.length}</div></div>
+                <div class="metric"><div class="metric-label">Total Sensors</div><div class="metric-value">${totalSensors}</div></div>
+                <div class="metric success"><div class="metric-label">Mean Pass Rate</div><div class="metric-value">${mean.toFixed(1)}%</div><div class="metric-delta">Median: ${median.toFixed(1)}%</div></div>
+                <div class="metric danger"><div class="metric-label">Pass Rate Range</div><div class="metric-value">${min.toFixed(1)}–${max.toFixed(1)}%</div><div class="metric-delta">Std Dev: ${stdDev.toFixed(1)}%</div></div>
+                <div class="metric"><div class="metric-label">Trend</div><div class="metric-value" style="font-size: 1rem; color: ${trendColor};">${trendArrow} ${trendDir}</div><div class="metric-delta">Slope: ${slope.toFixed(2)}/job</div></div>
+                <div class="metric"><div class="metric-label">Process Stability</div><div class="metric-value" style="font-size: 0.95rem; color: ${stabilityColor};">${stabilityLabel}</div><div class="metric-delta">Cv: ${cv.toFixed(1)}%</div></div>
+            `;
+        }
     }
 }
 
@@ -543,46 +567,126 @@ function renderMultiJobTable(tier) {
         tbody.innerHTML = rowsHTML;
         filterInfo.textContent = `Showing ${totalShown} of ${totalAll} sensors across ${jobs.length} jobs`;
 
-    } else {
-        // Many/Bulk: Job-level summary table
-        headerRow.innerHTML = '<th>Job #</th><th>Sensors</th><th>T1 Pass %</th><th>T2 Pass %</th><th>T3 Pass %</th><th>Overall Pass %</th><th>Avg 120s V</th><th>Avg %Chg</th>';
+    } else if (tier === 'many') {
+        // AGGREGATED MODE: Ranked summary with quartile indicators
+        headerRow.innerHTML = '<th>Rank</th><th>Job #</th><th>Sensors</th><th>T1 Pass %</th><th>T2 Pass %</th><th>T3 Pass %</th><th>Overall Pass %</th><th>Quartile</th><th>Avg 120s V</th>';
 
         const allStats = jobs.map(([jobNum, data]) => ({
             jobNum,
             stats: data.stats
         }));
 
-        // Find best/worst overall pass rates
-        const rates = allStats.map(s => s.stats.passRate);
-        const bestRate = Math.max(...rates);
-        const worstRate = Math.min(...rates);
+        // Sort by pass rate descending for ranking
+        const sorted = [...allStats].sort((a, b) => b.stats.passRate - a.stats.passRate);
+        const rates = sorted.map(s => s.stats.passRate);
+        const q1 = calculatePercentile(rates, 75); // top 25%
+        const median = calculatePercentile(rates, 50);
+        const q3 = calculatePercentile(rates, 25); // bottom 25%
 
-        tbody.innerHTML = allStats.map(({ jobNum, stats }) => {
-            const isBest = stats.passRate === bestRate && jobs.length > 1;
-            const isWorst = stats.passRate === worstRate && jobs.length > 1 && bestRate !== worstRate;
+        tbody.innerHTML = sorted.map(({ jobNum, stats }, idx) => {
+            const quartile = getQuartile(stats.passRate, q3, median, q1);
+            const qBadge = quartile === 1 ? '<span class="quartile-badge q1">Q1</span>'
+                : quartile === 4 ? '<span class="quartile-badge q4">Q4</span>'
+                : `<span class="quartile-badge q${quartile}">Q${quartile}</span>`;
+            const rowClass = quartile === 1 ? 'row-q1' : quartile === 4 ? 'row-q4' : '';
             const t1 = stats.testStats[1];
             const t2 = stats.testStats[2];
             const t3 = stats.testStats[3];
+            return `<tr class="${rowClass}">
+                <td style="font-weight:700; color: var(--primary);">#${idx + 1}</td>
+                <td><strong>${jobNum}</strong></td>
+                <td>${stats.total}</td>
+                <td>${t1 ? (t1.total > 0 ? (t1.passed / t1.total * 100).toFixed(1) + '%' : '—') : '—'}</td>
+                <td>${t2 ? (t2.total > 0 ? (t2.passed / t2.total * 100).toFixed(1) + '%' : '—') : '—'}</td>
+                <td>${t3 ? (t3.total > 0 ? (t3.passed / t3.total * 100).toFixed(1) + '%' : '—') : '—'}</td>
+                <td style="font-weight:700;">${stats.passRate.toFixed(1)}%</td>
+                <td>${qBadge}</td>
+                <td>${stats.avg120s !== null ? stats.avg120s.toFixed(3) + 'V' : '—'}</td>
+            </tr>`;
+        }).join('');
+
+        // Footer
+        const totalSensors = allStats.reduce((s, a) => s + a.stats.total, 0);
+        const totalPassed = allStats.reduce((s, a) => s + a.stats.passed, 0);
+        const totalCounted = allStats.reduce((s, a) => s + a.stats.counted, 0);
+        const overallRate = totalCounted > 0 ? (totalPassed / totalCounted * 100) : 0;
+        const stdDev = calculateStdDev(rates);
+        tbody.innerHTML += `<tr class="overall-row"><td></td><td><strong>Overall</strong></td><td>${totalSensors}</td><td colspan="3"></td><td style="font-weight:700;">${overallRate.toFixed(1)}%</td><td>σ: ${stdDev.toFixed(1)}%</td><td></td></tr>`;
+
+        filterInfo.textContent = `${jobs.length} jobs ranked by pass rate, ${totalSensors} total sensors`;
+
+    } else {
+        // TREND MODE: Sequential table with delta tracking
+        headerRow.innerHTML = '<th>Job #</th><th>Sensors</th><th>T1 Pass %</th><th>T2 Pass %</th><th>T3 Pass %</th><th>Overall Pass %</th><th>Δ</th><th>Run</th><th>Flag</th>';
+
+        const allStats = jobs.map(([jobNum, data]) => ({
+            jobNum,
+            stats: data.stats
+        }));
+
+        // Keep sequential order (by job number)
+        allStats.sort((a, b) => parseFloat(a.jobNum) - parseFloat(b.jobNum));
+        const rates = allStats.map(s => s.stats.passRate);
+        const runs = calculateRunLengths(rates);
+        const mean = calculateMean(rates);
+        const stdDev = calculateStdDev(rates);
+        const slope = calculateLinearSlope(rates);
+        let flaggedCount = 0;
+
+        tbody.innerHTML = allStats.map(({ jobNum, stats }, idx) => {
+            const t1 = stats.testStats[1];
+            const t2 = stats.testStats[2];
+            const t3 = stats.testStats[3];
+
+            // Delta vs previous job
+            let deltaHTML = '—';
+            if (idx > 0) {
+                const delta = stats.passRate - allStats[idx - 1].stats.passRate;
+                const deltaColor = delta > 0 ? 'var(--success)' : delta < 0 ? 'var(--danger)' : '#888';
+                deltaHTML = `<span style="color: ${deltaColor}; font-weight:600;">${delta > 0 ? '+' : ''}${delta.toFixed(1)}%</span>`;
+            }
+
+            // Run indicator
+            const run = runs[idx];
+            let runHTML = '—';
+            if (run.len >= 2) {
+                const arrow = run.dir === 'up' ? '↑' : '↓';
+                const color = run.dir === 'up' ? 'var(--success)' : 'var(--danger)';
+                runHTML = `<span style="color: ${color}; font-weight:700;">${arrow}${run.len}</span>`;
+            }
+
+            // Flags
+            const flags = [];
+            if (Math.abs(stats.passRate - mean) > 2 * stdDev) flags.push('outlier');
+            if (run.dir === 'down' && run.len >= 3) flags.push('decline');
+            let flagHTML = '';
+            if (flags.length > 0) {
+                flaggedCount++;
+                const title = flags.join(', ');
+                flagHTML = `<span class="trend-flag" title="${title}">⚠</span>`;
+            }
+
             return `<tr>
                 <td><strong>${jobNum}</strong></td>
                 <td>${stats.total}</td>
                 <td>${t1 ? (t1.total > 0 ? (t1.passed / t1.total * 100).toFixed(1) + '%' : '—') : '—'}</td>
                 <td>${t2 ? (t2.total > 0 ? (t2.passed / t2.total * 100).toFixed(1) + '%' : '—') : '—'}</td>
                 <td>${t3 ? (t3.total > 0 ? (t3.passed / t3.total * 100).toFixed(1) + '%' : '—') : '—'}</td>
-                <td class="${isBest ? 'best-cell' : isWorst ? 'worst-cell' : ''}" style="font-weight:700;">${stats.passRate.toFixed(1)}%</td>
-                <td>${stats.avg120s !== null ? stats.avg120s.toFixed(3) + 'V' : '—'}</td>
-                <td>${stats.avgPctChg !== null ? stats.avgPctChg.toFixed(1) + '%' : '—'}</td>
+                <td style="font-weight:700;">${stats.passRate.toFixed(1)}%</td>
+                <td>${deltaHTML}</td>
+                <td>${runHTML}</td>
+                <td>${flagHTML}</td>
             </tr>`;
         }).join('');
 
-        // Add overall row
+        // Footer
         const totalSensors = allStats.reduce((s, a) => s + a.stats.total, 0);
         const totalPassed = allStats.reduce((s, a) => s + a.stats.passed, 0);
         const totalCounted = allStats.reduce((s, a) => s + a.stats.counted, 0);
         const overallRate = totalCounted > 0 ? (totalPassed / totalCounted * 100) : 0;
-        tbody.innerHTML += `<tr class="overall-row"><td><strong>Overall</strong></td><td>${totalSensors}</td><td colspan="3"></td><td style="font-weight:700;">${overallRate.toFixed(1)}%</td><td colspan="2"></td></tr>`;
+        tbody.innerHTML += `<tr class="overall-row"><td><strong>Overall</strong></td><td>${totalSensors}</td><td colspan="3"></td><td style="font-weight:700;">${overallRate.toFixed(1)}%</td><td colspan="2" style="font-size:0.8rem;">Slope: ${slope.toFixed(2)}/job</td><td style="font-size:0.8rem;">${flaggedCount} flagged</td></tr>`;
 
-        filterInfo.textContent = `${jobs.length} jobs, ${totalSensors} total sensors`;
+        filterInfo.textContent = `${jobs.length} jobs in sequential order, ${totalSensors} total sensors`;
     }
 }
 
@@ -612,8 +716,8 @@ function renderMultiJobAnomalies(tier) {
                 <strong>Job ${a.jobNum} — ${a.serial}</strong> (Channel: ${a.channel}) — ${a.type}: ${a.message}
             </div>
         `).join('') + `<a class="anomaly-view-link" onclick="viewAnomaliesInTable('${uniqueSerials.join(',')}')">View anomalies in data table</a>`;
-    } else {
-        // Aggregated anomaly summary
+    } else if (tier === 'many') {
+        // AGGREGATED MODE: Group-level anomalies
         const issues = [];
         const highFailJobs = jobs.filter(([, d]) => d.stats.failRate > 20);
         if (highFailJobs.length > 0) {
@@ -628,9 +732,96 @@ function renderMultiJobAnomalies(tier) {
             issues.push(`<div class="anomaly-item anomaly-medium"><strong>${outliers.length} job(s)</strong> are statistical outliers (>2σ): ${outliers.map(([j, d]) => `${j} (${d.stats.passRate.toFixed(1)}%)`).join(', ')}</div>`);
         }
 
+        // Bimodal distribution detection
+        const { q1, q3, iqr } = calculateIQR(passRates);
+        if (iqr > 15) {
+            const sorted = [...passRates].sort((a, b) => a - b);
+            const mid = calculateMean(passRates);
+            const lower = sorted.filter(r => r < mid - 5);
+            const upper = sorted.filter(r => r > mid + 5);
+            if (lower.length >= 2 && upper.length >= 2) {
+                issues.push(`<div class="anomaly-item anomaly-medium"><strong>Bimodal distribution detected</strong> — jobs cluster into two groups (IQR: ${iqr.toFixed(1)}%). Possible batch or process split issue.</div>`);
+            }
+        }
+
+        // Weak test detection
+        const testAvgs = {};
+        for (let t = 1; t <= 3; t++) {
+            const testRates = jobs.map(([, d]) => {
+                const ts = d.stats.testStats[t];
+                return ts && ts.total > 0 ? (ts.passed / ts.total * 100) : null;
+            }).filter(v => v !== null);
+            if (testRates.length > 0) testAvgs[t] = calculateMean(testRates);
+        }
+        const testKeys = Object.keys(testAvgs);
+        if (testKeys.length >= 2) {
+            const maxTestAvg = Math.max(...Object.values(testAvgs));
+            for (const [t, avg] of Object.entries(testAvgs)) {
+                if (maxTestAvg - avg > 15) {
+                    issues.push(`<div class="anomaly-item anomaly-medium"><strong>T${t} underperforming</strong> — avg ${avg.toFixed(1)}% vs best test at ${maxTestAvg.toFixed(1)}% (${(maxTestAvg - avg).toFixed(1)}% gap)</div>`);
+                }
+            }
+        }
+
         if (issues.length === 0) { section.classList.add('hidden'); return; }
         section.classList.remove('hidden');
-        preview.textContent = `(${issues.length} issues)`;
+        preview.textContent = `(${issues.length} group issues)`;
+        list.innerHTML = issues.join('');
+
+    } else {
+        // TREND MODE: Process-level anomalies
+        const issues = [];
+        const sortedJobs = [...jobs].sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]));
+        const passRates = sortedJobs.map(([, d]) => d.stats.passRate);
+        const jobNums = sortedJobs.map(([j]) => j);
+        const mean = calculateMean(passRates);
+        const stdDev = calculateStdDev(passRates);
+
+        // High fail rate jobs
+        const highFailJobs = sortedJobs.filter(([, d]) => d.stats.failRate > 20);
+        if (highFailJobs.length > 0) {
+            issues.push(`<div class="anomaly-item anomaly-high"><strong>${highFailJobs.length} job(s)</strong> have >20% fail rate: ${highFailJobs.map(([j]) => j).join(', ')}</div>`);
+        }
+
+        // Statistical outliers
+        const outliers = sortedJobs.filter(([, d]) => Math.abs(d.stats.passRate - mean) > stdDev * 2);
+        if (outliers.length > 0) {
+            issues.push(`<div class="anomaly-item anomaly-medium"><strong>${outliers.length} outlier(s)</strong> (>2σ): ${outliers.map(([j, d]) => `${j} (${d.stats.passRate.toFixed(1)}%)`).join(', ')}</div>`);
+        }
+
+        // Consecutive decline detection
+        const runs = calculateRunLengths(passRates);
+        const maxDecline = runs.reduce((max, r) => r.dir === 'down' && r.len > max.len ? r : max, { len: 0 });
+        if (maxDecline.len >= 3) {
+            const endIdx = runs.lastIndexOf(maxDecline);
+            const startIdx = endIdx - maxDecline.len + 1;
+            issues.push(`<div class="anomaly-item anomaly-high"><strong>${maxDecline.len} consecutive declines</strong> from Job ${jobNums[startIdx]} to ${jobNums[endIdx]} (${passRates[startIdx].toFixed(1)}% → ${passRates[endIdx].toFixed(1)}%)</div>`);
+        }
+
+        // Recent degradation (last 3 jobs vs overall)
+        if (passRates.length >= 6) {
+            const recentMean = calculateMean(passRates.slice(-3));
+            if (mean - recentMean > 5) {
+                issues.push(`<div class="anomaly-item anomaly-medium"><strong>Recent degradation</strong> — last 3 jobs avg ${recentMean.toFixed(1)}% vs overall ${mean.toFixed(1)}% (${(mean - recentMean).toFixed(1)}% below)</div>`);
+            }
+        }
+
+        // Shift detection (moving average crosses mean downward)
+        if (passRates.length >= 8) {
+            const windowSize = Math.min(5, Math.floor(passRates.length / 3));
+            for (let i = windowSize; i < passRates.length; i++) {
+                const prevMA = calculateMean(passRates.slice(i - windowSize, i));
+                const currMA = calculateMean(passRates.slice(i - windowSize + 1, i + 1));
+                if (prevMA >= mean && currMA < mean) {
+                    issues.push(`<div class="anomaly-item anomaly-medium"><strong>Process shift detected</strong> at Job ${jobNums[i]} — moving average crossed below overall mean (${mean.toFixed(1)}%)</div>`);
+                    break; // Only report first shift
+                }
+            }
+        }
+
+        if (issues.length === 0) { section.classList.add('hidden'); return; }
+        section.classList.remove('hidden');
+        preview.textContent = `(${issues.length} process issues)`;
         list.innerHTML = issues.join('');
     }
 }

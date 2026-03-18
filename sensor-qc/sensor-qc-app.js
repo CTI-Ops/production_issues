@@ -119,7 +119,8 @@ function runAnalysis() {
     renderJobChips(jobNumbers);
     resetMultiJobView();
 
-    const tier = getDisplayTier(jobNumbers.length);
+    const baseTier = getDisplayTier(jobNumbers.length);
+    const tier = getEffectiveTier(baseTier, jobNumbers.length);
     currentTier = tier;
     currentJobList = jobNumbers;
 
@@ -279,6 +280,21 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Serial search
     document.getElementById('serialSearch').addEventListener('input', renderTable);
+
+    // Mode override re-renders when changed
+    document.getElementById('modeOverride').addEventListener('change', () => {
+        if (multiJobMode && multiJobResults.size > 0) {
+            const baseTier = getDisplayTier(currentJobList.length);
+            const tier = getEffectiveTier(baseTier, currentJobList.length);
+            currentTier = tier;
+            renderJobChips(currentJobList);
+            resetMultiJobView();
+            renderMultiJobMetrics(tier);
+            renderMultiJobTable(tier);
+            renderMultiJobCharts(tier);
+            renderMultiJobAnomalies(tier);
+        }
+    });
     
     // Initialize
     renderJobHistory();

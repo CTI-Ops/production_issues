@@ -699,6 +699,31 @@
         .tier-many { background: var(--warning); color: white; }
         .tier-bulk { background: var(--danger); color: white; }
 
+        /* Quartile badges for Aggregated Mode table */
+        .quartile-badge {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .quartile-badge.q1 { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+        .quartile-badge.q2 { background: rgba(102, 126, 234, 0.15); color: #667eea; }
+        .quartile-badge.q3 { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+        .quartile-badge.q4 { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+
+        /* Row tinting for quartile ranking */
+        .row-q1 { background: rgba(16, 185, 129, 0.04); }
+        .row-q4 { background: rgba(239, 68, 68, 0.04); }
+
+        /* Trend mode flag icon */
+        .trend-flag {
+            color: #f59e0b;
+            font-size: 1.1rem;
+            cursor: help;
+        }
+
         @media (prefers-color-scheme: dark) {
             .job-chip { background: #5a6fd6; }
         }
