@@ -87,6 +87,14 @@
                     <div id="jobNumberHint" style="font-size: 0.75em; color: var(--info); margin-top: 4px;">Comma-separated, ranges (258-265), or "all"</div>
                     <div id="jobChips" class="job-chips"></div>
                     <div id="tierBadge"></div>
+                    <div id="modeOverrideContainer" class="hidden" style="margin-top: 6px;">
+                        <label for="modeOverride" style="font-size: 0.75rem; color: #888;">Display Mode</label>
+                        <select id="modeOverride" style="margin-top: 2px;">
+                            <option value="auto">Auto (based on job count)</option>
+                            <option value="many">Aggregated Mode</option>
+                            <option value="bulk">Trend Mode</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="thresholdSet">Threshold Set</label>

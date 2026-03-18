@@ -533,6 +533,95 @@ function getDisplayTier(count) {
     return 'bulk';
 }
 
+function getEffectiveTier(baseTier, jobCount) {
+    if (jobCount < 2) return baseTier;
+    if (baseTier === 'few') return baseTier; // Comparison mode is not overridable
+    const override = document.getElementById('modeOverride')?.value;
+    if (override && override !== 'auto') return override;
+    return baseTier;
+}
+
+// --- Statistical helpers for mode differentiation ---
+
+function calculateSkewness(values) {
+    if (values.length < 3) return 0;
+    const mean = calculateMean(values);
+    const std = calculateStdDev(values);
+    if (std === 0) return 0;
+    const n = values.length;
+    const sum = values.reduce((s, v) => s + Math.pow((v - mean) / std, 3), 0);
+    return (n / ((n - 1) * (n - 2))) * sum;
+}
+
+function calculateIQR(values) {
+    const q1 = calculatePercentile(values, 25);
+    const q3 = calculatePercentile(values, 75);
+    return { q1, q3, iqr: q3 - q1 };
+}
+
+function calculateCv(values) {
+    const mean = calculateMean(values);
+    if (mean === 0) return 0;
+    return (calculateStdDev(values) / mean) * 100;
+}
+
+function calculateLinearSlope(values) {
+    const n = values.length;
+    if (n < 2) return 0;
+    const xMean = (n - 1) / 2;
+    const yMean = calculateMean(values);
+    let num = 0, den = 0;
+    values.forEach((y, i) => { num += (i - xMean) * (y - yMean); den += (i - xMean) ** 2; });
+    return den !== 0 ? num / den : 0;
+}
+
+function detectChangePoints(values, minSegment) {
+    // Simple change-point: split at each point, compare means of left/right
+    if (values.length < minSegment * 2) return [];
+    const overallStd = calculateStdDev(values);
+    if (overallStd === 0) return [];
+    const points = [];
+    for (let i = minSegment; i <= values.length - minSegment; i++) {
+        const leftMean = calculateMean(values.slice(0, i));
+        const rightMean = calculateMean(values.slice(i));
+        if (Math.abs(rightMean - leftMean) > overallStd) {
+            points.push({ index: i, leftMean, rightMean, diff: rightMean - leftMean });
+        }
+    }
+    // Return the most significant one
+    if (points.length === 0) return [];
+    points.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+    return [points[0]];
+}
+
+function getQuartile(value, q1, median, q3) {
+    if (value >= q3) return 1; // top quartile
+    if (value >= median) return 2;
+    if (value >= q1) return 3;
+    return 4; // bottom quartile
+}
+
+function calculateRunLengths(values) {
+    // Returns array of {direction, length} for consecutive increases/decreases
+    const runs = [];
+    if (values.length < 2) return values.map(() => ({ dir: '=', len: 0 }));
+    const result = [{ dir: '=', len: 0 }]; // first job has no delta
+    let currentDir = null;
+    let currentLen = 0;
+    for (let i = 1; i < values.length; i++) {
+        const delta = values[i] - values[i - 1];
+        const dir = delta > 0.1 ? 'up' : delta < -0.1 ? 'down' : 'flat';
+        if (dir === currentDir && dir !== 'flat') {
+            currentLen++;
+        } else {
+            currentDir = dir;
+            currentLen = 1;
+        }
+        result.push({ dir: dir === 'flat' ? '=' : dir, len: dir === 'flat' ? 0 : currentLen });
+    }
+    return result;
+}
+
 function runMultiJobAnalysis(jobNumbers, thresholdSet) {
     multiJobResults.clear();
 
