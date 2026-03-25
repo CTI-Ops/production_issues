@@ -10,7 +10,17 @@ window.onerror = function(message, source, lineno, colno, error) {
     } else {
         const errorDiv = document.createElement('div');
         errorDiv.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);background:#fee2e2;border:1px solid #ef4444;color:#991b1b;padding:1rem;border-radius:8px;z-index:10000;max-width:90%;';
-        errorDiv.innerHTML = '<strong>An error occurred:</strong> ' + message + '<br><button onclick="this.parentElement.remove()" style="margin-top:0.5rem;padding:4px 8px;cursor:pointer;">Dismiss</button>';
+        const msgSpan = document.createElement('strong');
+        msgSpan.textContent = 'An error occurred: ';
+        errorDiv.appendChild(msgSpan);
+        errorDiv.appendChild(document.createTextNode(message));
+        const br = document.createElement('br');
+        errorDiv.appendChild(br);
+        const dismissBtn = document.createElement('button');
+        dismissBtn.textContent = 'Dismiss';
+        dismissBtn.style.cssText = 'margin-top:0.5rem;padding:4px 8px;cursor:pointer;';
+        dismissBtn.onclick = function() { errorDiv.remove(); };
+        errorDiv.appendChild(dismissBtn);
         document.body.appendChild(errorDiv);
     }
     return false;
@@ -20,71 +30,67 @@ window.onerror = function(message, source, lineno, colno, error) {
 // CONFIGURATION
 // ============================================================
 
-const THRESHOLDS = {
-    'Standard': {
-        min_120s: 1.50,
-        max_120s: 4.9,
-        min_pct_change: -6.00,
-        max_pct_change: 30.00,
-        max_pairwise_dev: 0.3,
-        min_0s: 0.45,
-        max_0s: 0.55
+window.SensorQC = {
+    // Configuration
+    THRESHOLDS: {
+        'Standard': {
+            min_120s: 1.50,
+            max_120s: 4.9,
+            min_pct_change: -6.00,
+            max_pct_change: 30.00,
+            max_pairwise_dev: 0.3,
+            min_0s: 0.45,
+            max_0s: 0.55
+        },
+        'High Range': {
+            min_120s: 0.55,
+            max_120s: 1.0,
+            min_pct_change: 0.00,
+            max_pct_change: 75.00,
+            max_pairwise_dev: 0.5,
+            min_0s: 0.45,
+            max_0s: 0.55
+        }
     },
-    'High Range': {
-        min_120s: 0.55,
-        max_120s: 1.0,
-        min_pct_change: 0.00,
-        max_pct_change: 75.00,
-        max_pairwise_dev: 0.5,
-        min_0s: 0.45,
-        max_0s: 0.55
-    }
+    TIME_POINTS: ['0', '5', '15', '30', '60', '90', '120'],
+    STATUS_PRIORITY: {
+        'FL': 1, 'FH': 2, 'OT-': 3, 'PASS': 4, 'TT': 5, 'OT+': 6, 'BL': 7, 'FAIL': 8
+    },
+    STATUS_COLORS: {
+        'PASS': '#10b981',
+        'FL': '#ef4444',
+        'FH': '#dc2626',
+        'OT-': '#ea580c',
+        'TT': '#eab308',
+        'OT+': '#fb923c',
+        'BL': '#06b6d4',
+        'FAIL': '#7c3aed'
+    },
+    TEST_COLORS: ['#667eea', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
+
+    // State
+    rawData: [],
+    analysisResults: null,
+    currentJob: null,
+    currentJobData: null,
+    jobHistory: JSON.parse(localStorage.getItem('sensorJobHistory') || '[]'),
+    jobStatsHistory: JSON.parse(localStorage.getItem('sensorJobStatsHistory') || '[]'),
+    activeFilters: new Set(['PASS', 'FL', 'FH', 'OT-', 'TT', 'OT+', 'BL', 'FAIL']),
+    charts: {},
+    sqlDb: null,
+    sqlEngine: null,
+
+    // Multi-job state
+    multiJobMode: false,
+    multiJobResults: new Map(),
+    currentJobList: [],
+    currentTier: 'single',
+
+    // IndexedDB constants
+    DB_NAME: 'SensorAnalysisDB',
+    DB_VERSION: 1,
+    STORE_NAME: 'databases'
 };
-
-const TIME_POINTS = ['0', '5', '15', '30', '60', '90', '120'];
-
-const STATUS_PRIORITY = {
-    'FL': 1, 'FH': 2, 'OT-': 3, 'PASS': 4, 'TT': 5, 'OT+': 6, 'BL': 7, 'FAIL': 8
-};
-
-const STATUS_COLORS = {
-    'PASS': '#10b981',
-    'FL': '#ef4444',
-    'FH': '#dc2626',
-    'OT-': '#ea580c',
-    'TT': '#eab308',
-    'OT+': '#fb923c',
-    'BL': '#06b6d4',
-    'FAIL': '#7c3aed'
-};
-
-const TEST_COLORS = ['#667eea', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-
-// ============================================================
-// STATE
-// ============================================================
-
-let rawData = [];
-let analysisResults = null;
-let currentJob = null;
-let currentJobData = null;
-let jobHistory = JSON.parse(localStorage.getItem('sensorJobHistory') || '[]');
-let jobStatsHistory = JSON.parse(localStorage.getItem('sensorJobStatsHistory') || '[]');
-let activeFilters = new Set(['PASS', 'FL', 'FH', 'OT-', 'TT', 'OT+', 'BL', 'FAIL']);
-let charts = {};
-let sqlDb = null;
-let sqlEngine = null;
-
-// Multi-job state
-let multiJobMode = false;
-let multiJobResults = new Map();
-let currentJobList = [];
-let currentTier = 'single';
-
-// IndexedDB constants
-const DB_NAME = 'SensorAnalysisDB';
-const DB_VERSION = 1;
-const STORE_NAME = 'databases';
 
 // ============================================================
 // MAIN ANALYSIS ORCHESTRATOR
@@ -101,7 +107,7 @@ function runAnalysis() {
         return;
     }
 
-    if (rawData.length === 0) {
+    if (SensorQC.rawData.length === 0) {
         showAlert('⚠️ Please load data first', 'warning');
         return;
     }
@@ -121,8 +127,8 @@ function runAnalysis() {
 
     const baseTier = getDisplayTier(jobNumbers.length);
     const tier = getEffectiveTier(baseTier, jobNumbers.length);
-    currentTier = tier;
-    currentJobList = jobNumbers;
+    SensorQC.currentTier = tier;
+    SensorQC.currentJobList = jobNumbers;
 
     showLoading(`Analyzing ${jobNumbers.length} job(s)...`);
 
@@ -130,10 +136,10 @@ function runAnalysis() {
         try {
             if (jobNumbers.length === 1) {
                 // ========== SINGLE JOB MODE (original behavior) ==========
-                multiJobMode = false;
+                SensorQC.multiJobMode = false;
                 const jobNumber = jobNumbers[0];
 
-                const jobData = getJobData(rawData, jobNumber);
+                const jobData = getJobData(SensorQC.rawData, jobNumber);
                 if (jobData.length === 0) {
                     hideLoading();
                     showAlert(`❌ No data found for Job # ${jobNumber}`, 'danger');
@@ -141,13 +147,13 @@ function runAnalysis() {
                 }
 
                 const dataWithMetrics = calculateMetrics(jobData);
-                analysisResults = determinePassFail(dataWithMetrics, thresholdSet);
-                currentJob = jobNumber;
-                currentJobData = jobData;
+                SensorQC.analysisResults = determinePassFail(dataWithMetrics, thresholdSet);
+                SensorQC.currentJob = jobNumber;
+                SensorQC.currentJobData = jobData;
 
-                applyStatusOverrides(analysisResults, jobNumber);
+                applyStatusOverrides(SensorQC.analysisResults, jobNumber);
 
-                if (analysisResults.length === 0) {
+                if (SensorQC.analysisResults.length === 0) {
                     hideLoading();
                     showAlert('❌ No valid sensor readings found', 'danger');
                     return;
@@ -157,40 +163,40 @@ function runAnalysis() {
                 if (welcomeScreen) welcomeScreen.classList.add('hidden');
                 document.getElementById('resultsSection').classList.remove('hidden');
 
-                renderMetrics(analysisResults, thresholdSet);
-                renderStatusFilters(analysisResults);
-                activeFilters = new Set(['PASS', 'FL', 'FH', 'OT-', 'TT', 'OT+', 'BL', 'FAIL']);
+                renderMetrics(SensorQC.analysisResults, thresholdSet);
+                renderStatusFilters(SensorQC.analysisResults);
+                SensorQC.activeFilters = new Set(['PASS', 'FL', 'FH', 'OT-', 'TT', 'OT+', 'BL', 'FAIL']);
                 renderTable();
-                renderCharts(analysisResults, jobData, thresholdSet);
+                renderCharts(SensorQC.analysisResults, jobData, thresholdSet);
                 renderThresholdInfo(thresholdSet);
 
-                const anomalies = detectAnomalies(analysisResults, THRESHOLDS[thresholdSet]);
+                const anomalies = detectAnomalies(SensorQC.analysisResults, SensorQC.THRESHOLDS[thresholdSet]);
                 renderAnomalies(anomalies);
 
                 updateJobHistory(jobNumber);
                 enableExportButtons(true);
 
                 hideLoading();
-                showAlert(`✅ Analyzed ${analysisResults.length} sensors from ${jobData.length} records`, 'success');
+                showAlert(`✅ Analyzed ${SensorQC.analysisResults.length} sensors from ${jobData.length} records`, 'success');
 
             } else {
                 // ========== MULTI-JOB MODE ==========
-                multiJobMode = true;
+                SensorQC.multiJobMode = true;
 
                 runMultiJobAnalysis(jobNumbers, thresholdSet);
 
-                if (multiJobResults.size === 0) {
+                if (SensorQC.multiJobResults.size === 0) {
                     hideLoading();
                     showAlert('❌ No data found for any of the specified jobs', 'danger');
                     return;
                 }
 
                 // Set currentJob to first job for compatibility
-                const firstEntry = [...multiJobResults.entries()][0];
-                currentJob = firstEntry[0];
-                currentJobData = firstEntry[1].jobData;
+                const firstEntry = [...SensorQC.multiJobResults.entries()][0];
+                SensorQC.currentJob = firstEntry[0];
+                SensorQC.currentJobData = firstEntry[1].jobData;
                 // Combine all results for filter/export compatibility
-                analysisResults = [...multiJobResults.values()].flatMap(d => d.results);
+                SensorQC.analysisResults = [...SensorQC.multiJobResults.values()].flatMap(d => d.results);
 
                 const welcomeScreen = document.getElementById('welcomeScreen');
                 if (welcomeScreen) welcomeScreen.classList.add('hidden');
@@ -198,22 +204,22 @@ function runAnalysis() {
 
                 // Adaptive rendering based on tier
                 renderMultiJobMetrics(tier);
-                renderStatusFilters(analysisResults);
-                activeFilters = new Set(['PASS', 'FL', 'FH', 'OT-', 'TT', 'OT+', 'BL', 'FAIL']);
+                renderStatusFilters(SensorQC.analysisResults);
+                SensorQC.activeFilters = new Set(['PASS', 'FL', 'FH', 'OT-', 'TT', 'OT+', 'BL', 'FAIL']);
                 renderMultiJobTable(tier);
                 renderMultiJobCharts(tier);
                 renderThresholdInfo(thresholdSet);
                 renderMultiJobAnomalies(tier);
 
                 // Update history for primary job
-                updateJobHistory(currentJob);
+                updateJobHistory(SensorQC.currentJob);
                 enableExportButtons(true);
 
-                const totalSensors = [...multiJobResults.values()].reduce((s, d) => s + d.stats.total, 0);
-                const totalRecords = [...multiJobResults.values()].reduce((s, d) => s + d.jobData.length, 0);
+                const totalSensors = [...SensorQC.multiJobResults.values()].reduce((s, d) => s + d.stats.total, 0);
+                const totalRecords = [...SensorQC.multiJobResults.values()].reduce((s, d) => s + d.jobData.length, 0);
 
                 hideLoading();
-                showAlert(`✅ Analyzed ${multiJobResults.size} jobs: ${totalSensors} sensors from ${totalRecords} records (${tier} mode)`, 'success');
+                showAlert(`✅ Analyzed ${SensorQC.multiJobResults.size} jobs: ${totalSensors} sensors from ${totalRecords} records (${tier} mode)`, 'success');
             }
         } catch (err) {
             hideLoading();
@@ -283,11 +289,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Mode override re-renders when changed
     document.getElementById('modeOverride').addEventListener('change', () => {
-        if (multiJobMode && multiJobResults.size > 0) {
-            const baseTier = getDisplayTier(currentJobList.length);
-            const tier = getEffectiveTier(baseTier, currentJobList.length);
-            currentTier = tier;
-            renderJobChips(currentJobList);
+        if (SensorQC.multiJobMode && SensorQC.multiJobResults.size > 0) {
+            const baseTier = getDisplayTier(SensorQC.currentJobList.length);
+            const tier = getEffectiveTier(baseTier, SensorQC.currentJobList.length);
+            SensorQC.currentTier = tier;
+            renderJobChips(SensorQC.currentJobList);
             resetMultiJobView();
             renderMultiJobMetrics(tier);
             renderMultiJobTable(tier);

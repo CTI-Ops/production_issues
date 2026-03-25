@@ -3,12 +3,12 @@
 // ============================================================
 
 function exportCSV() {
-    if (!analysisResults) return;
+    if (!SensorQC.analysisResults) return;
 
-    if (multiJobMode && (currentTier === 'many' || currentTier === 'bulk')) {
+    if (SensorQC.multiJobMode && (SensorQC.currentTier === 'many' || SensorQC.currentTier === 'bulk')) {
         // Export job-level summary for many/bulk tiers
         const headers = ['Job #', 'Sensors', 'T1 Pass %', 'T2 Pass %', 'T3 Pass %', 'Overall Pass %', 'Avg 120s V', 'Avg %Chg'];
-        const rows = [...multiJobResults.entries()].map(([jobNum, data]) => {
+        const rows = [...SensorQC.multiJobResults.entries()].map(([jobNum, data]) => {
             const s = data.stats;
             const t1 = s.testStats[1], t2 = s.testStats[2], t3 = s.testStats[3];
             return [
@@ -22,22 +22,22 @@ function exportCSV() {
             ].map(v => `"${v}"`).join(',');
         });
         const csv = [headers.join(','), ...rows].join('\n');
-        downloadFile(csv, `multi_job_comparison_${currentJobList.length}jobs.csv`, 'text/csv');
+        downloadFile(csv, `multi_job_comparison_${SensorQC.currentJobList.length}jobs.csv`, 'text/csv');
         return;
     }
 
     // Single or few-job: sensor-level export
-    const hasJobCol = multiJobMode;
+    const hasJobCol = SensorQC.multiJobMode;
     const headers = hasJobCol ? ['Job #', 'Serial Number', 'Channel', 'Pass/Fail', '120s(MaxΔ)'] : ['Serial Number', 'Channel', 'Pass/Fail', '120s(MaxΔ)'];
-    const maxTests = Math.max(...analysisResults.map(r => r.testCount || 1));
+    const maxTests = Math.max(...SensorQC.analysisResults.map(r => r.testCount || 1));
     for (let i = 1; i <= maxTests; i++) {
         headers.push(`0s(T${i})`, `120s(T${i})`, `%Chg(T${i})`, `Status(T${i})`);
     }
 
     let allRows;
-    if (multiJobMode) {
+    if (SensorQC.multiJobMode) {
         allRows = [];
-        for (const [jobNum, data] of multiJobResults.entries()) {
+        for (const [jobNum, data] of SensorQC.multiJobResults.entries()) {
             data.results.forEach(row => {
                 const values = [jobNum, row['Serial Number'], row['Channel'], row['Pass/Fail'], row['120s(MaxΔ)'].toFixed(4)];
                 for (let i = 1; i <= maxTests; i++) {
@@ -47,7 +47,7 @@ function exportCSV() {
             });
         }
     } else {
-        allRows = analysisResults.map(row => {
+        allRows = SensorQC.analysisResults.map(row => {
             const values = [row['Serial Number'], row['Channel'], row['Pass/Fail'], row['120s(MaxΔ)'].toFixed(4)];
             for (let i = 1; i <= maxTests; i++) {
                 values.push(row[`0s(T${i})`] ?? '', row[`120s(T${i})`] ?? '', row[`%Chg(T${i})`] ?? '', row[`Status(T${i})`] ?? '');
@@ -57,36 +57,36 @@ function exportCSV() {
     }
 
     const csv = [headers.join(','), ...allRows].join('\n');
-    const filename = multiJobMode ? `multi_job_${currentJobList.length}jobs_analysis.csv` : `job_${currentJob}_analysis.csv`;
+    const filename = SensorQC.multiJobMode ? `multi_job_${SensorQC.currentJobList.length}jobs_analysis.csv` : `job_${SensorQC.currentJob}_analysis.csv`;
     downloadFile(csv, filename, 'text/csv');
 }
 
 function exportPDF() {
-    if (!analysisResults) return;
+    if (!SensorQC.analysisResults) return;
 
-    const total = analysisResults.length;
-    const passed = analysisResults.filter(r => ['PASS', 'TT', 'OT+', 'BL'].includes(r['Pass/Fail'])).length;
-    const failed = analysisResults.filter(r => ['FL', 'FH', 'OT-', 'FAIL'].includes(r['Pass/Fail'])).length;
+    const total = SensorQC.analysisResults.length;
+    const passed = SensorQC.analysisResults.filter(r => ['PASS', 'TT', 'OT+', 'BL'].includes(r['Pass/Fail'])).length;
+    const failed = SensorQC.analysisResults.filter(r => ['FL', 'FH', 'OT-', 'FAIL'].includes(r['Pass/Fail'])).length;
     const counted = passed + failed;
     const passRate = counted > 0 ? (passed / counted * 100).toFixed(1) : '0.0';
     const failRate = counted > 0 ? (failed / counted * 100).toFixed(1) : '0.0';
     const thresholdSet = document.getElementById('thresholdSet').value;
 
     const statusCounts = {};
-    analysisResults.forEach(r => {
+    SensorQC.analysisResults.forEach(r => {
         statusCounts[r['Pass/Fail']] = (statusCounts[r['Pass/Fail']] || 0) + 1;
     });
 
     const statusRows = Object.entries(statusCounts)
-        .sort((a, b) => (STATUS_PRIORITY[a[0]] || 99) - (STATUS_PRIORITY[b[0]] || 99))
-        .map(([status, count]) => `<tr><td>${status}</td><td>${count}</td><td>${(count / total * 100).toFixed(1)}%</td></tr>`)
+        .sort((a, b) => (SensorQC.STATUS_PRIORITY[a[0]] || 99) - (SensorQC.STATUS_PRIORITY[b[0]] || 99))
+        .map(([status, count]) => `<tr><td>${esc(status)}</td><td>${esc(count)}</td><td>${(count / total * 100).toFixed(1)}%</td></tr>`)
         .join('');
 
-    const failedSensors = analysisResults.filter(r => ['FL', 'FH'].includes(r['Pass/Fail']));
-    const failedRows = failedSensors.map(r => `<tr><td>${r['Serial Number']}</td><td>${r['Channel']}</td><td>${r['Pass/Fail']}</td><td>${r['120s(MaxΔ)'].toFixed(4)}</td></tr>`).join('');
+    const failedSensors = SensorQC.analysisResults.filter(r => ['FL', 'FH'].includes(r['Pass/Fail']));
+    const failedRows = failedSensors.map(r => `<tr><td>${esc(r['Serial Number'])}</td><td>${esc(r['Channel'])}</td><td>${esc(r['Pass/Fail'])}</td><td>${r['120s(MaxΔ)'].toFixed(4)}</td></tr>`).join('');
 
     const reportHTML = `
-        <html><head><title>Job ${currentJob} Summary</title>
+        <html><head><title>Job ${esc(SensorQC.currentJob)} Summary</title>
         <style>
             body{font-family:Arial,sans-serif;padding:20px}
             h1{color:#667eea;border-bottom:3px solid #667eea;padding-bottom:10px}
@@ -101,7 +101,7 @@ function exportPDF() {
         </style>
         </head><body>
         <h1>Sensor Analysis Report</h1>
-        <p><strong>Job:</strong> ${currentJob}</p>
+        <p><strong>Job:</strong> ${esc(SensorQC.currentJob)}</p>
         <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
 
         <h2>Summary</h2>
@@ -110,7 +110,7 @@ function exportPDF() {
             <tr><td>Total Sensors</td><td>${total}</td></tr>
             <tr><td>Passed</td><td class="pass">${passed} (${passRate}%)</td></tr>
             <tr><td>Failed</td><td class="fail">${failed} (${failRate}%)</td></tr>
-            <tr><td>Threshold Set</td><td>${thresholdSet}</td></tr>
+            <tr><td>Threshold Set</td><td>${esc(thresholdSet)}</td></tr>
         </table>
 
         <h2>Status Breakdown</h2>
@@ -151,18 +151,18 @@ function printReport() {
 }
 
 function showSummaryReport() {
-    if (!currentJob || !rawData || rawData.length === 0) {
+    if (!SensorQC.currentJob || !SensorQC.rawData || SensorQC.rawData.length === 0) {
         alert('Please load a database and analyze a job first.');
         return;
     }
 
     // Get threshold settings
     const thresholdSet = document.getElementById('thresholdSet').value;
-    const thresholds = THRESHOLDS[thresholdSet] || THRESHOLDS['default'];
+    const thresholds = SensorQC.THRESHOLDS[thresholdSet] || SensorQC.THRESHOLDS['default'];
 
     // Group all raw data by whole number job prefix (e.g., 258.1, 258.2 -> 258)
     const jobGroups = {};
-    rawData.forEach(row => {
+    SensorQC.rawData.forEach(row => {
         const jobNum = row['Job #'];
         const wholeNum = parseInt(jobNum, 10);
         if (!isNaN(wholeNum)) {
@@ -178,7 +178,7 @@ function showSummaryReport() {
         .map(j => parseInt(j, 10))
         .sort((a, b) => b - a);
 
-    const currentJobWholeNum = parseInt(currentJob, 10);
+    const currentJobWholeNum = parseInt(SensorQC.currentJob, 10);
 
     // Find current job and 14 jobs numerically before it
     const currentJobIndex = allWholeJobs.findIndex(j => j === currentJobWholeNum);
@@ -383,22 +383,22 @@ function showSummaryReport() {
 }
 
 function showFailedReport() {
-    if (!analysisResults) return;
-    
-    const failed = analysisResults.filter(r => ['FL', 'FH', 'OT-', 'FAIL'].includes(r['Pass/Fail']));
+    if (!SensorQC.analysisResults) return;
+
+    const failed = SensorQC.analysisResults.filter(r => ['FL', 'FH', 'OT-', 'FAIL'].includes(r['Pass/Fail']));
     
     if (failed.length === 0) {
         alert('✅ No failed sensors found!');
         return;
     }
     
-    const rows = failed.map(r => `<tr><td>${r['Serial Number']}</td><td>${r['Channel']}</td><td>${r['Pass/Fail']}</td><td>${r['120s(MaxΔ)'].toFixed(4)}</td></tr>`).join('');
+    const rows = failed.map(r => `<tr><td>${esc(r['Serial Number'])}</td><td>${esc(r['Channel'])}</td><td>${esc(r['Pass/Fail'])}</td><td>${r['120s(MaxΔ)'].toFixed(4)}</td></tr>`).join('');
     
     const reportHTML = `
-        <html><head><title>Failed Sensors - Job ${currentJob}</title>
+        <html><head><title>Failed Sensors - Job ${esc(SensorQC.currentJob)}</title>
         <style>body{font-family:Arial,sans-serif;padding:20px}h1{color:#ef4444;border-bottom:3px solid #ef4444;padding-bottom:10px}table{width:100%;border-collapse:collapse}th,td{padding:10px;border:1px solid #ddd;text-align:left}th{background:#fee2e2;color:#991b1b}</style>
         </head><body>
-        <h1>Failed Sensors Report - Job ${currentJob}</h1>
+        <h1>Failed Sensors Report - Job ${esc(SensorQC.currentJob)}</h1>
         <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
         <p><strong>Total Failed:</strong> ${failed.length} sensors</p>
         <table><tr><th>Serial Number</th><th>Channel</th><th>Status</th><th>Max Δ</th></tr>${rows}</table>

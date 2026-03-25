@@ -2,15 +2,22 @@
 // Sensor QC Analysis - Core Data, Parsing & Analysis Functions
 // ============================================================
 
+const IQR_MIN_VALUES = 4;
+const IQR_MULTIPLIER = 1.5;
+const HIGH_VARIABILITY_MULTIPLIER = 2;
+const LARGE_DELTA_THRESHOLD = 3.0;
+const BASELINE_BUFFER = 0.10;
+const MAX_JOBS_QUERY = 200;
+
 function openIndexedDB() {
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        const request = indexedDB.open(SensorQC.DB_NAME, SensorQC.DB_VERSION);
         request.onerror = () => reject(request.error);
         request.onsuccess = () => resolve(request.result);
         request.onupgradeneeded = (event) => {
             const db = event.target.result;
-            if (!db.objectStoreNames.contains(STORE_NAME)) {
-                db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+            if (!db.objectStoreNames.contains(SensorQC.STORE_NAME)) {
+                db.createObjectStore(SensorQC.STORE_NAME, { keyPath: 'id' });
             }
         };
     });
@@ -19,8 +26,8 @@ function openIndexedDB() {
 async function saveLastDatabase(arrayBuffer, fileName) {
     try {
         const db = await openIndexedDB();
-        const transaction = db.transaction(STORE_NAME, 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
+        const transaction = db.transaction(SensorQC.STORE_NAME, 'readwrite');
+        const store = transaction.objectStore(SensorQC.STORE_NAME);
         await new Promise((resolve, reject) => {
             const request = store.put({
                 id: 'lastDatabase',
@@ -40,8 +47,8 @@ async function saveLastDatabase(arrayBuffer, fileName) {
 async function getLastDatabase() {
     try {
         const db = await openIndexedDB();
-        const transaction = db.transaction(STORE_NAME, 'readonly');
-        const store = transaction.objectStore(STORE_NAME);
+        const transaction = db.transaction(SensorQC.STORE_NAME, 'readonly');
+        const store = transaction.objectStore(SensorQC.STORE_NAME);
         const result = await new Promise((resolve, reject) => {
             const request = store.get('lastDatabase');
             request.onsuccess = () => resolve(request.result);
@@ -58,8 +65,8 @@ async function getLastDatabase() {
 async function clearLastDatabase() {
     try {
         const db = await openIndexedDB();
-        const transaction = db.transaction(STORE_NAME, 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
+        const transaction = db.transaction(SensorQC.STORE_NAME, 'readwrite');
+        const store = transaction.objectStore(SensorQC.STORE_NAME);
         await new Promise((resolve, reject) => {
             const request = store.delete('lastDatabase');
             request.onsuccess = () => resolve();
@@ -76,15 +83,15 @@ async function clearLastDatabase() {
 // ============================================================
 
 async function loadSqlEngine() {
-    if (sqlEngine) return sqlEngine;
-    
+    if (SensorQC.sqlEngine) return SensorQC.sqlEngine;
+
     showLoading('Initializing database engine...');
     try {
-        sqlEngine = await initSqlJs({
+        SensorQC.sqlEngine = await initSqlJs({
             locateFile: file => `https://sql.js.org/dist/${file}`
         });
         hideLoading();
-        return sqlEngine;
+        return SensorQC.sqlEngine;
     } catch (err) {
         hideLoading();
         console.error('Failed to initialize SQL.js:', err);
@@ -119,7 +126,7 @@ function parseCSV(text) {
         
         headers.forEach((header, idx) => {
             let value = values[idx] || '';
-            if (TIME_POINTS.includes(header) || header === 'Test #') {
+            if (SensorQC.TIME_POINTS.includes(header) || header === 'Test #') {
                 const num = parseFloat(value);
                 row[header] = isNaN(num) ? null : num;
             } else if (header === 'Timestamp' || header === 'Date' || header === 'Test Date') {
@@ -190,12 +197,12 @@ function calculatePercentile(values, percentile) {
 }
 
 function filterOutliersIQR(values) {
-    if (values.length < 4) return values;
+    if (values.length < IQR_MIN_VALUES) return values;
     const q1 = calculatePercentile(values, 25);
     const q3 = calculatePercentile(values, 75);
     const iqr = q3 - q1;
-    const lowerBound = q1 - 1.5 * iqr;
-    const upperBound = q3 + 1.5 * iqr;
+    const lowerBound = q1 - IQR_MULTIPLIER * iqr;
+    const upperBound = q3 + IQR_MULTIPLIER * iqr;
     return values.filter(v => v >= lowerBound && v <= upperBound);
 }
 
@@ -212,10 +219,10 @@ async function loadDatabaseFromArrayBuffer(arrayBuffer, fileName, isAutoLoad = f
 
         const uint8Array = new Uint8Array(arrayBuffer);
 
-        sqlDb = new SQL.Database(uint8Array);
+        SensorQC.sqlDb = new SQL.Database(uint8Array);
 
         // Query the sensor_readings table
-        const results = sqlDb.exec("SELECT * FROM sensor_readings");
+        const results = SensorQC.sqlDb.exec("SELECT * FROM sensor_readings");
 
         if (results.length === 0) {
             throw new Error('No data found in sensor_readings table');
@@ -224,10 +231,10 @@ async function loadDatabaseFromArrayBuffer(arrayBuffer, fileName, isAutoLoad = f
         const columns = results[0].columns;
         const rows = results[0].values;
 
-        rawData = rows.map(row => {
+        SensorQC.rawData = rows.map(row => {
             const obj = {};
             columns.forEach((col, idx) => {
-                if (TIME_POINTS.includes(col) || col === 'Test #') {
+                if (SensorQC.TIME_POINTS.includes(col) || col === 'Test #') {
                     const num = parseFloat(row[idx]);
                     obj[col] = isNaN(num) ? null : num;
                 } else if (col === 'Timestamp') {
@@ -241,9 +248,9 @@ async function loadDatabaseFromArrayBuffer(arrayBuffer, fileName, isAutoLoad = f
 
         hideLoading();
 
-        const uniqueJobs = [...new Set(rawData.map(r => r['Job #']))];
+        const uniqueJobs = [...new Set(SensorQC.rawData.map(r => r['Job #']))];
         const sourceLabel = isAutoLoad ? `Restored: ${fileName}` : 'Database';
-        showAlert(`✅ Loaded ${rawData.length} records from ${uniqueJobs.length} jobs (${sourceLabel})`, 'success');
+        showAlert(`✅ Loaded ${SensorQC.rawData.length} records from ${uniqueJobs.length} jobs (${sourceLabel})`, 'success');
         document.getElementById('analyzeBtn').disabled = false;
         enableExportButtons(false);
 
@@ -312,7 +319,7 @@ function calculateMetrics(data) {
 }
 
 function determinePassFail(data, thresholdSet = 'Standard') {
-    const thresholds = THRESHOLDS[thresholdSet];
+    const thresholds = SensorQC.THRESHOLDS[thresholdSet];
     
     const grouped = {};
     data.forEach(row => {
@@ -380,7 +387,7 @@ function determinePassFail(data, thresholdSet = 'Standard') {
             serialRow.testData.push({
                 testNum,
                 status: testStatus.split(',')[0], // Primary status
-                readings: TIME_POINTS.map(tp => row[tp])
+                readings: SensorQC.TIME_POINTS.map(tp => row[tp])
             });
             
             allFailureCodes.push(...failureCodes);
@@ -410,14 +417,14 @@ function determinePassFail(data, thresholdSet = 'Standard') {
             
             if (hasCriticalFailure) {
                 // Critical failures always show
-                uniqueFailures.sort((a, b) => (STATUS_PRIORITY[a] || 99) - (STATUS_PRIORITY[b] || 99));
+                uniqueFailures.sort((a, b) => (SensorQC.STATUS_PRIORITY[a] || 99) - (SensorQC.STATUS_PRIORITY[b] || 99));
                 finalStatus = uniqueFailures[0];
             } else if (hasAnyPass) {
                 // If any test passed and no critical failures, show PASS
                 finalStatus = 'PASS';
             } else {
                 // Show the highest priority non-critical failure
-                uniqueFailures.sort((a, b) => (STATUS_PRIORITY[a] || 99) - (STATUS_PRIORITY[b] || 99));
+                uniqueFailures.sort((a, b) => (SensorQC.STATUS_PRIORITY[a] || 99) - (SensorQC.STATUS_PRIORITY[b] || 99));
                 finalStatus = uniqueFailures[0];
             }
         }
@@ -435,7 +442,7 @@ function detectAnomalies(results, thresholds) {
     
     results.forEach(row => {
         const maxPairDev = row['120s(MaxΔ)'];
-        if (maxPairDev > thresholds.max_pairwise_dev * 2) {
+        if (maxPairDev > thresholds.max_pairwise_dev * HIGH_VARIABILITY_MULTIPLIER) {
             anomalies.push({
                 serial: row['Serial Number'],
                 channel: row['Channel'],
@@ -448,7 +455,7 @@ function detectAnomalies(results, thresholds) {
         const readings = row.readings120 || [];
         if (readings.length > 1) {
             const range = Math.max(...readings) - Math.min(...readings);
-            if (range > 3.0) {
+            if (range > LARGE_DELTA_THRESHOLD) {
                 anomalies.push({
                     serial: row['Serial Number'],
                     channel: row['Channel'],
@@ -465,7 +472,7 @@ function detectAnomalies(results, thresholds) {
             const v0 = row[`0s(T${t})`];
             if (v0 !== null && v0 !== undefined && !isNaN(v0)) {
                 if (v0 < thresholds.min_0s || v0 > thresholds.max_0s) {
-                    const extreme = v0 < thresholds.min_0s - 0.10 || v0 > thresholds.max_0s + 0.10;
+                    const extreme = v0 < thresholds.min_0s - BASELINE_BUFFER || v0 > thresholds.max_0s + BASELINE_BUFFER;
                     anomalies.push({
                         serial: row['Serial Number'],
                         channel: row['Channel'],
@@ -493,7 +500,7 @@ function parseJobInput(inputStr) {
 
     // Handle "all" or "*"
     if (str === 'all' || str === '*') {
-        const allJobs = [...new Set(rawData.map(r => {
+        const allJobs = [...new Set(SensorQC.rawData.map(r => {
             const wholeNum = parseInt(r['Job #'], 10);
             return isNaN(wholeNum) ? null : wholeNum;
         }).filter(j => j !== null))];
@@ -513,7 +520,7 @@ function parseJobInput(inputStr) {
                 const lo = Math.min(start, end);
                 const hi = Math.max(start, end);
                 // Safety limit: max 200 jobs in a range
-                if (hi - lo > 200) continue;
+                if (hi - lo > MAX_JOBS_QUERY) continue;
                 for (let j = lo; j <= hi; j++) {
                     jobs.add(String(j));
                 }
@@ -623,10 +630,10 @@ function calculateRunLengths(values) {
 }
 
 function runMultiJobAnalysis(jobNumbers, thresholdSet) {
-    multiJobResults.clear();
+    SensorQC.multiJobResults.clear();
 
     for (const jobNum of jobNumbers) {
-        const jobData = getJobData(rawData, jobNum);
+        const jobData = getJobData(SensorQC.rawData, jobNum);
         if (jobData.length === 0) continue;
 
         const dataWithMetrics = calculateMetrics(jobData);
@@ -674,7 +681,7 @@ function runMultiJobAnalysis(jobNumbers, thresholdSet) {
         // Filter outliers from %Chg using IQR method before averaging
         const filteredPctChg = filterOutliersIQR(allPctChg);
 
-        multiJobResults.set(jobNum, {
+        SensorQC.multiJobResults.set(jobNum, {
             results,
             jobData,
             stats: {
@@ -702,10 +709,10 @@ function handleCSVFile(file) {
     const reader = new FileReader();
     reader.onload = e => {
         try {
-            rawData = parseCSV(e.target.result);
+            SensorQC.rawData = parseCSV(e.target.result);
             hideLoading();
-            const uniqueJobs = [...new Set(rawData.map(r => r['Job #']))];
-            showAlert(`✅ Loaded ${rawData.length} records from ${uniqueJobs.length} jobs`, 'success');
+            const uniqueJobs = [...new Set(SensorQC.rawData.map(r => r['Job #']))];
+            showAlert(`✅ Loaded ${SensorQC.rawData.length} records from ${uniqueJobs.length} jobs`, 'success');
             document.getElementById('analyzeBtn').disabled = false;
             enableExportButtons(false);
         } catch (err) {
