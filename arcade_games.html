@@ -11,10 +11,10 @@
 
   .page-header { background: #161b22; border-bottom: 1px solid #30363d; padding: 0.9rem 1.5rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; backdrop-filter: blur(12px); }
   .logo { display: flex; align-items: center; gap: 0.7rem; }
-  .logo-mark { width: 28px; height: 28px; background: #e0952b; border-radius: 6px; display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.75rem; color: #000; }
+  .logo-mark { width: 28px; height: 28px; background: #4a7fb5; border-radius: 6px; display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.75rem; color: #000; }
   .logo-text { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; }
-  .nav-link { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: #e0952b; text-decoration: none; padding: 0.3rem 0.6rem; border: 1px solid #30363d; border-radius: 6px; transition: all 0.15s; }
-  .nav-link:hover { background: rgba(224,149,43,0.12); border-color: #e0952b; }
+  .nav-link { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: #4a7fb5; text-decoration: none; padding: 0.3rem 0.6rem; border: 1px solid #30363d; border-radius: 6px; transition: all 0.15s; }
+  .nav-link:hover { background: rgba(74,127,181,0.12); border-color: #4a7fb5; }
   .header-meta { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: #484f58; }
 
   #arcade-overlay {
@@ -33,7 +33,7 @@
     border: 1px solid #30363d;
     border-radius: 12px;
     padding: 0;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(224,149,43,0.06);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(74,127,181,0.06);
     overflow: hidden;
     transform: scale(0.95); transition: transform 0.3s ease;
   }
@@ -48,7 +48,7 @@
   #arcade-header .title-area { display: flex; align-items: center; gap: 0.6rem; }
   #arcade-header .badge {
     font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; font-weight: 600;
-    color: #000; background: #e0952b; padding: 0.1rem 0.4rem; border-radius: 3px;
+    color: #000; background: #4a7fb5; padding: 0.1rem 0.4rem; border-radius: 3px;
     letter-spacing: 0.06em; text-transform: uppercase;
   }
   #arcade-header .game-title {
@@ -81,7 +81,7 @@
   }
   #arcade-hud .score-area { display: flex; gap: 1.2rem; }
   #arcade-hud .stat-label { color: #484f58; }
-  #arcade-hud .stat-val { color: #e0952b; font-weight: 600; }
+  #arcade-hud .stat-val { color: #4a7fb5; font-weight: 600; }
 
   /* ── GAME SELECT MENU ── */
   #game-select {
@@ -103,7 +103,7 @@
     background: #0d1117; border: 1px solid #30363d; border-radius: 8px;
     cursor: pointer; transition: all 0.15s; text-align: left;
   }
-  .game-btn:hover { border-color: #e0952b; background: rgba(224,149,43,0.05); }
+  .game-btn:hover { border-color: #4a7fb5; background: rgba(74,127,181,0.05); }
   .game-btn .game-name {
     font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;
     font-weight: 600; color: #e6edf3; margin-bottom: 0.2rem;
@@ -122,7 +122,7 @@
   #pause-overlay.hidden { display: none; }
   #pause-overlay .pause-text {
     font-family: 'JetBrains Mono', monospace; font-size: 1.2rem;
-    font-weight: 700; color: #e0952b; letter-spacing: 0.1em;
+    font-weight: 700; color: #4a7fb5; letter-spacing: 0.1em;
   }
   #pause-overlay .pause-hint {
     font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: #484f58;
@@ -139,7 +139,7 @@
   }
   .game-btn:hover .hs-tooltip { display: block; }
   .hs-tooltip .hs-title {
-    font-size: 0.6rem; font-weight: 600; color: #e0952b; text-transform: uppercase;
+    font-size: 0.6rem; font-weight: 600; color: #4a7fb5; text-transform: uppercase;
     letter-spacing: 0.08em; margin-bottom: 0.3rem;
   }
   .hs-tooltip .hs-row {
@@ -148,12 +148,12 @@
   }
   .hs-tooltip .hs-rank { color: #484f58; }
   .hs-tooltip .hs-name { color: #e6edf3; }
-  .hs-tooltip .hs-score { color: #e0952b; font-weight: 600; }
+  .hs-tooltip .hs-score { color: #4a7fb5; font-weight: 600; }
   .hs-tooltip .hs-empty { font-size: 0.6rem; color: #484f58; }
 
   /* Bug Report */
   .bug-btn { position: fixed; bottom: 1.2rem; right: 1.2rem; z-index: 90; width: 40px; height: 40px; border-radius: 50%; background: #161b22; border: 1px solid #30363d; color: #8b949e; font-size: 1.1rem; cursor: pointer; display: grid; place-items: center; transition: all 0.15s; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
-  .bug-btn:hover { border-color: #e0952b; color: #e0952b; box-shadow: 0 2px 16px rgba(224,149,43,0.12); }
+  .bug-btn:hover { border-color: #4a7fb5; color: #4a7fb5; box-shadow: 0 2px 16px rgba(74,127,181,0.12); }
   .bug-overlay { position: fixed; inset: 0; z-index: 10000; background: rgba(10,13,19,0.88); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
   .bug-overlay.open { opacity: 1; pointer-events: all; }
   .bug-modal { background: #161b22; border: 1px solid #30363d; border-radius: 12px; width: 400px; max-width: 92vw; overflow: hidden; }
@@ -164,10 +164,10 @@
   .bug-modal-body { padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
   .bug-modal-body label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #484f58; display: block; margin-bottom: 0.25rem; }
   .bug-modal-body textarea { width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; color: #e6edf3; background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 0.55rem 0.75rem; outline: none; resize: vertical; min-height: 70px; transition: border-color 0.15s; }
-  .bug-modal-body textarea:focus { border-color: #e0952b; box-shadow: 0 0 0 3px rgba(224,149,43,0.12); }
+  .bug-modal-body textarea:focus { border-color: #4a7fb5; box-shadow: 0 0 0 3px rgba(74,127,181,0.12); }
   .bug-modal-body textarea::placeholder { color: #484f58; font-style: italic; }
-  .bug-submit { width: 100%; padding: 0.55rem; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 600; color: #000; background: #e0952b; border: none; border-radius: 8px; cursor: pointer; transition: background 0.15s; }
-  .bug-submit:hover { background: #f0a840; }
+  .bug-submit { width: 100%; padding: 0.55rem; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 600; color: #000; background: #4a7fb5; border: none; border-radius: 8px; cursor: pointer; transition: background 0.15s; }
+  .bug-submit:hover { background: #5a8fc5; }
   .bug-submit:disabled { opacity: 0.5; cursor: not-allowed; }
   .bug-toast { position: fixed; bottom: 4.5rem; right: 1.2rem; z-index: 10010; background: #161b22; border: 1px solid #3fb950; border-radius: 8px; padding: 0.5rem 1rem; font-size: 0.78rem; color: #3fb950; font-weight: 600; opacity: 0; transform: translateY(8px); transition: all 0.2s; pointer-events: none; }
   .bug-toast.show { opacity: 1; transform: translateY(0); }
@@ -250,7 +250,7 @@
 </div>
 
 <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:1rem;">
-  <button onclick="openArcade()" style="font-family:'JetBrains Mono',monospace;font-size:0.9rem;padding:0.8rem 1.6rem;background:#e0952b;color:#000;border:none;border-radius:8px;cursor:pointer;font-weight:700;">
+  <button onclick="openArcade()" style="font-family:'JetBrains Mono',monospace;font-size:0.9rem;padding:0.8rem 1.6rem;background:#4a7fb5;color:#000;border:none;border-radius:8px;cursor:pointer;font-weight:700;">
     Open Arcade (for testing)
   </button>
   <div style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#484f58;text-align:center;line-height:1.6;">
@@ -420,10 +420,10 @@ function handleInitialsKey(key) {
 // ── Theme Colors ──
 const C = {
   bg: '#0d1117', card: '#161b22', border: '#30363d',
-  accent: '#e0952b', accentDim: '#a3720a', accentGlow: 'rgba(224,149,43,0.15)',
+  accent: '#4a7fb5', accentDim: '#3a6fa5', accentGlow: 'rgba(74,127,181,0.15)',
   text: '#e6edf3', dim: '#8b949e', muted: '#484f58',
   green: '#3fb950', red: '#f85149', cyan: '#58a6ff',
-  brick1: '#e0952b', brick2: '#f0a840', brick3: '#3fb950', brick4: '#58a6ff', brick5: '#f85149',
+  brick1: '#4a7fb5', brick2: '#5a8fc5', brick3: '#3fb950', brick4: '#58a6ff', brick5: '#f85149',
 };
 
 // ── Tooltip updater ──
@@ -1461,7 +1461,7 @@ class MissileCommand {
     // Player shot trails
     this.shots.forEach(s => {
       if (s.trail.length > 1) {
-        ctx.strokeStyle = 'rgba(224,149,43,0.6)'; ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(74,127,181,0.6)'; ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.moveTo(s.trail[0].x, s.trail[0].y);
         s.trail.forEach(p => ctx.lineTo(p.x, p.y));
         ctx.lineTo(s.x, s.y); ctx.stroke();
@@ -1935,7 +1935,7 @@ class Tetris {
       S: { shape: [[1,0],[2,0],[0,1],[1,1]], color: C.green },
       Z: { shape: [[0,0],[1,0],[1,1],[2,1]], color: C.red },
       J: { shape: [[0,0],[0,1],[1,1],[2,1]], color: C.cyan },
-      L: { shape: [[2,0],[0,1],[1,1],[2,1]], color: '#f0a840' },
+      L: { shape: [[2,0],[0,1],[1,1],[2,1]], color: '#5a8fc5' },
     };
     this.pieceNames = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
     this.bag = [];
@@ -3030,7 +3030,7 @@ function showBugToast(msg,type){var t=document.getElementById('bugToast');t.text
   <div class="bug-modal">
     <div class="bug-modal-head"><h3>Report a Bug</h3><button onclick="document.getElementById('bugOverlay').classList.remove('open')">&times;</button></div>
     <div class="bug-modal-body">
-      <div><label>Description <span style="color:#e0952b">*</span></label><textarea id="bugDesc" placeholder="What went wrong?" rows="3"></textarea></div>
+      <div><label>Description <span style="color:#4a7fb5">*</span></label><textarea id="bugDesc" placeholder="What went wrong?" rows="3"></textarea></div>
       <div><label>Steps to Reproduce</label><textarea id="bugSteps" placeholder="1. Go to...&#10;2. Click on...&#10;3. See error" rows="3"></textarea></div>
       <button class="bug-submit" id="bugSubmit" onclick="submitBug()">Submit Report</button>
     </div>
