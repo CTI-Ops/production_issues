@@ -2,6 +2,14 @@
 // Shared Utilities - Operations Portal
 // ============================================================
 
+// Restore accessibility settings immediately to prevent flash of unstyled content
+(function() {
+  var keys = [['a11y_contrast','a11y-contrast'],['a11y_largetext','a11y-large-text'],['a11y_focus','a11y-focus']];
+  keys.forEach(function(pair) {
+    if (localStorage.getItem(pair[0]) === '1') document.documentElement.classList.add(pair[1]);
+  });
+})();
+
 /**
  * HTML-escape a string to prevent XSS when inserting into innerHTML.
  * Uses the browser's built-in textContent encoding.
