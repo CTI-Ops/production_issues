@@ -254,7 +254,7 @@ let initialsEntry = null; // active initials entry state
 let cachedScores = {};    // { gameName: [{ initials, score, level, date }, ...] }
 
 function fetchHighScores() {
-  fetch(SCRIPT_URL + '?action=high_scores')
+  fetch(SCRIPT_URL + '?action=high_scores&token=' + API_TOKEN)
     .then(r => r.json())
     .then(data => {
       if (data.scores_by_game) cachedScores = data.scores_by_game;
@@ -269,7 +269,7 @@ function submitHighScore(game, score, level, initials) {
   fetch(SCRIPT_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ action: 'high_score', game: game, score: score, level: level, initials: initials })
+    body: JSON.stringify({ action: 'high_score', game: game, score: score, level: level, initials: initials, token: API_TOKEN })
   }).then(() => fetchHighScores()).catch(() => {});
 }
 

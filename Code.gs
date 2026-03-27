@@ -10,6 +10,30 @@ const LOG_SHEET = 'Data Log';
 const CONFIG_SHEET = 'Config';
 const IDEAS_SHEET = 'Ideas';
 
+// ── API Security ──
+const API_TOKEN = 'ops-BpZ6FJBjCBF5eFmq_tAWag';
+
+function validateToken(data, e) {
+  const token = data ? data.token : (e && e.parameter ? e.parameter.token : null);
+  return token === API_TOKEN;
+}
+
+function checkRateLimit(action) {
+  const cache = CacheService.getScriptCache();
+  const key = 'rl_' + action;
+  const current = parseInt(cache.get(key) || '0');
+  const limits = {
+    'submit': 20, 'bug_report': 5, 'deleteIdea': 10,
+    'high_score': 10, 'add_config': 10, 'submitIdea': 15,
+    'editIdea': 15, 'rateIdea': 15, 'dashboard': 60,
+    'high_scores': 60, 'config': 60, 'ideas': 60
+  };
+  const limit = limits[action] || 30;
+  if (current >= limit) return false;
+  cache.put(key, String(current + 1), 60);
+  return true;
+}
+
 // Column positions in the Config sheet (1-indexed)
 const COL = {
   ITEM: 1,       // A
@@ -20,17 +44,24 @@ const COL = {
 // ── GET: return config data or dashboard KPIs ──
 function doGet(e) {
   try {
+    if (!validateToken(null, e)) {
+      return jsonResponse({ error: 'Unauthorized' });
+    }
     const page = (e.parameter && e.parameter.page) || '';
     if (page === 'ideas') {
+      if (!checkRateLimit('ideas')) return jsonResponse({ error: 'Rate limited' });
       return jsonResponse(getIdeas());
     }
     const action = (e.parameter && e.parameter.action) || '';
     if (action === 'dashboard') {
+      if (!checkRateLimit('dashboard')) return jsonResponse({ error: 'Rate limited' });
       return jsonResponse(getDashboardData());
     }
     if (action === 'high_scores') {
+      if (!checkRateLimit('high_scores')) return jsonResponse({ error: 'Rate limited' });
       return jsonResponse(getHighScores());
     }
+    if (!checkRateLimit('config')) return jsonResponse({ error: 'Rate limited' });
     const config = getConfig();
     return ContentService.createTextOutput(JSON.stringify(config))
       .setMimeType(ContentService.MimeType.JSON);
@@ -44,6 +75,13 @@ function doGet(e) {
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
+
+    if (!validateToken(data, null)) {
+      return jsonResponse({ success: false, error: 'Unauthorized' });
+    }
+    if (!checkRateLimit(data.action || 'unknown')) {
+      return jsonResponse({ success: false, error: 'Rate limited' });
+    }
 
     if (data.action === 'submit') {
       return handleSubmit(data);

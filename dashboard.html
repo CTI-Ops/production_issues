@@ -141,7 +141,7 @@ async function loadDashboard(){
   status.textContent='Loading...'; status.style.display='block';
   if(!SCRIPT_URL){status.textContent='No script URL configured. Go to Log Entry to set up.'; return;}
   try{
-    const url=SCRIPT_URL+(SCRIPT_URL.includes('?')?'&':'?')+'action=dashboard';
+    const url=SCRIPT_URL+(SCRIPT_URL.includes('?')?'&':'?')+'action=dashboard&token='+API_TOKEN;
     const res=await fetchRetry(url,undefined,3,1500,(attempt,total)=>{status.textContent='Connection issue \u2014 retrying (attempt '+attempt+'/'+total+')...';});
     const d=await res.json();
     if(d.error) throw new Error(d.error);
