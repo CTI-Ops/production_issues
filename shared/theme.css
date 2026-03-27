@@ -9,7 +9,7 @@
 :root {
   --bg: #0e1117; --bg-card: #161b22; --bg-input: #0d1117; --bg-hover: #1c2333;
   --border: #30363d; --border-focus: #4a7fb5; --text: #e6edf3; --text-dim: #8b949e;
-  --text-muted: #484f58; --accent: #4a7fb5; --accent-hover: #5a8fc5;
+  --text-muted: #7a828e; --accent: #4a7fb5; --accent-hover: #5a8fc5;
   --accent-glow: rgba(74,127,181,0.12);
   --green: #3fb950; --green-bg: rgba(63,185,80,0.12); --green-border: rgba(63,185,80,0.3);
   --blue: #58a6ff; --blue-bg: rgba(88,166,255,0.1); --blue-border: rgba(88,166,255,0.3);
@@ -48,3 +48,55 @@ header, .page-header { background: var(--bg-card); border-bottom: 1px solid var(
 .bug-toast { position: fixed; bottom: 4.5rem; right: 1.2rem; z-index: 10010; background: var(--bg-card); border: 1px solid var(--green); border-radius: var(--radius); padding: 0.5rem 1rem; font-size: 0.78rem; color: var(--green); font-weight: 600; opacity: 0; transform: translateY(8px); transition: all 0.2s; pointer-events: none; }
 .bug-toast.show { opacity: 1; transform: translateY(0); }
 .bug-toast.err { border-color: var(--red); color: var(--red); }
+
+/* ============================================================
+   Accessibility Panel
+   ============================================================ */
+
+/* ── Button (bottom-left) ── */
+.a11y-btn { position: fixed; bottom: 1.2rem; left: 1.2rem; z-index: 90; width: 40px; height: 40px; border-radius: 50%; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-dim); font-size: 1.2rem; cursor: pointer; display: grid; place-items: center; transition: all 0.15s; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+.a11y-btn:hover { border-color: var(--accent); color: var(--accent); box-shadow: 0 2px 16px var(--accent-glow); }
+.a11y-btn.active { border-color: var(--accent); color: var(--accent); }
+
+/* ── Panel ── */
+.a11y-panel { position: fixed; bottom: 4rem; left: 1.2rem; z-index: 91; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 0.8rem 1rem; width: 220px; opacity: 0; pointer-events: none; transform: translateY(8px); transition: opacity 0.2s, transform 0.2s; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+.a11y-panel.open { opacity: 1; pointer-events: all; transform: translateY(0); }
+.a11y-panel-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); margin-bottom: 0.6rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--border); }
+.a11y-option { display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0; }
+.a11y-option-label { font-size: 0.78rem; font-weight: 500; color: var(--text); }
+
+/* ── Toggle Switch ── */
+.a11y-toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+.a11y-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+.a11y-toggle-track { position: absolute; inset: 0; background: var(--border); border-radius: 10px; cursor: pointer; transition: background 0.2s; }
+.a11y-toggle-track::after { content: ''; position: absolute; width: 16px; height: 16px; left: 2px; top: 2px; background: var(--text-dim); border-radius: 50%; transition: transform 0.2s, background 0.2s; }
+.a11y-toggle input:checked + .a11y-toggle-track { background: var(--accent); }
+.a11y-toggle input:checked + .a11y-toggle-track::after { transform: translateX(16px); background: #fff; }
+.a11y-toggle input:focus-visible + .a11y-toggle-track { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ============================================================
+   Accessibility Modes
+   ============================================================ */
+
+/* ── High Contrast ── */
+.a11y-contrast {
+  --text-muted: #b0b8c1;
+  --text-dim: #c8cdd3;
+  --border: #555d66;
+  --bg-card: #1c2129;
+  --accent-glow: rgba(74,127,181,0.25);
+}
+
+/* ── Large Text ── */
+.a11y-large-text { font-size: 20px !important; }
+
+/* ── Enhanced Focus ── */
+.a11y-focus *:focus { outline: 3px solid var(--accent) !important; outline-offset: 2px !important; box-shadow: 0 0 0 5px var(--accent-glow) !important; }
+.a11y-focus .a11y-toggle input:focus-visible + .a11y-toggle-track { outline-width: 3px; }
+
+/* ============================================================
+   Reduced Motion
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
