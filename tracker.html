@@ -118,9 +118,9 @@
   <div class="section"><div class="section-head"><span class="section-num">01</span><span class="section-label">Date &amp; Time Spent on Issue</span></div>
     <div class="section-body">
       <div class="row c3">
-        <div class="field"><label>Date <span class="req">*</span></label><input type="date" id="date"></div>
-        <div class="field"><label>Started <span class="req">*</span></label><input type="time" id="start_time"></div>
-        <div class="field"><label>Ended <span class="req">*</span></label><input type="time" id="end_time"></div>
+        <div class="field"><label for="date">Date <span class="req">*</span></label><input type="date" id="date" aria-required="true"></div>
+        <div class="field"><label for="start_time">Started <span class="req">*</span></label><input type="time" id="start_time" aria-required="true"></div>
+        <div class="field"><label for="end_time">Ended <span class="req">*</span></label><input type="time" id="end_time" aria-required="true"></div>
       </div>
       <div class="preview" id="preview">
         <div class="prev-row"><span class="prev-label">Total Time</span><span class="prev-val" id="pTime"></span></div>
@@ -131,21 +131,21 @@
   <div class="section"><div class="section-head"><span class="section-num">02</span><span class="section-label">Item &amp; Operation</span></div>
     <div class="section-body">
       <div class="row">
-        <div class="field"><label>Item <span class="req">*</span></label>
+        <div class="field"><label for="itemSearch">Item <span class="req">*</span></label>
           <div class="search-select" id="itemSearchWrap">
-            <input type="text" id="itemSearch" placeholder="Select item..." autocomplete="off" onclick="openItemDropdown()" oninput="filterItems()">
+            <input type="text" id="itemSearch" placeholder="Select item..." autocomplete="off" aria-required="true" onclick="openItemDropdown()" oninput="filterItems()">
             <input type="hidden" id="item">
             <div class="search-dropdown" id="itemDropdown"></div>
           </div>
           <div class="add-new-row" id="addRow_item" style="display:none;"><input type="text" id="addInput_item" placeholder="New item name..."><button class="btn-add" onclick="confirmAdd('item')">Add</button><button class="btn-cancel" onclick="cancelAdd('item')">Cancel</button></div>
         </div>
-        <div class="field"><label>Operation <span class="req">*</span></label><select id="operation" disabled><option value="">Select item first...</option></select>
+        <div class="field"><label for="operation">Operation <span class="req">*</span></label><select id="operation" disabled aria-required="true"><option value="">Select item first...</option></select>
           <div class="add-new-row" id="addRow_operation" style="display:none;"><input type="text" id="addInput_operation" placeholder="New operation name..."><button class="btn-add" onclick="confirmAdd('operation')">Add</button><button class="btn-cancel" onclick="cancelAdd('operation')">Cancel</button></div>
         </div>
       </div>
       <div class="row c2">
-        <div class="field"><label>Quantity Affected by Issue <span class="req">*</span></label><input type="number" id="quantity" min="1" placeholder="25"></div>
-        <div class="field"><label>Job Number</label><input type="text" id="job_number" placeholder="Job #"></div>
+        <div class="field"><label for="quantity">Quantity Affected by Issue <span class="req">*</span></label><input type="number" id="quantity" min="1" placeholder="25" aria-required="true"></div>
+        <div class="field"><label for="job_number">Job Number</label><input type="text" id="job_number" placeholder="Job #"></div>
       </div>
     </div>
   </div>
@@ -153,7 +153,7 @@
     <div class="section-body"><div class="checks" id="issueGrid"></div></div>
   </div>
   <div class="section"><div class="section-head"><span class="section-num">04</span><span class="section-label">Comments</span></div>
-    <div class="section-body"><textarea id="comments" placeholder="Optional notes..."></textarea></div>
+    <div class="section-body"><label for="comments" class="sr-only">Comments</label><textarea id="comments" placeholder="Optional notes..."></textarea></div>
   </div>
   <div class="section"><div class="actions">
     <button class="btn-submit" id="submitBtn" onclick="submitForm()">Submit Entry</button>
@@ -442,6 +442,6 @@ init();
 
 </script>
 
-<script>initBugModal('Tracker');</script>
+<script>initBugModal('Tracker'); initA11yPanel();</script>
 </body>
 </html>

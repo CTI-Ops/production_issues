@@ -876,3 +876,13 @@
 
 /* Skip link focus styles */
 .skip-link:focus{position:fixed;left:50%;transform:translateX(-50%);top:10px;width:auto;height:auto;overflow:visible;}
+
+/* ── Accessibility Mode Overrides ── */
+.a11y-contrast { --text-light: #111; --border-light: #999; --info: #555; }
+@media (prefers-color-scheme: dark) {
+  .a11y-contrast { --text-dark: #f0f0f0; --border-dark: #666; --card-dark: #363636; --bg-dark: #121212; }
+  .a11y-contrast .metric-label { color: #ccc !important; }
+}
+.a11y-large-text .heatmap-n { font-size: 0.75rem !important; }
+.a11y-large-text .status-pill { font-size: 0.8rem !important; padding: 0.25rem 0.6rem !important; }
+.a11y-large-text .filter-pill { font-size: 0.8rem !important; padding: 0.35rem 0.8rem !important; }
