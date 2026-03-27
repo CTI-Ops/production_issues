@@ -199,7 +199,7 @@ async function loadConfig(){
   const status=document.getElementById('connStatus'), form=document.getElementById('formContainer');
   status.style.display='block'; form.style.display='none'; form.classList.add('form-disabled');
   try{
-    const res=await fetchRetry(SCRIPT_URL,undefined,3,1500,'config load'); CONFIG=await res.json(); if(CONFIG.error) throw new Error(CONFIG.error);
+    const res=await fetchRetry(SCRIPT_URL+(SCRIPT_URL.includes('?')?'&':'?')+'token='+API_TOKEN,undefined,3,1500,'config load'); CONFIG=await res.json(); if(CONFIG.error) throw new Error(CONFIG.error);
     populateForm(); document.getElementById('configBanner').classList.remove('visible');
     status.style.display='none'; form.style.display='block'; form.classList.remove('form-disabled');
   }catch(e){
@@ -307,7 +307,7 @@ function handleAddNew(sel,type){
 
 async function syncToConfig(configType, value, item){
   if(!SCRIPT_URL) return;
-  const payload={action:'add_config', config_type:configType, value:value};
+  const payload={action:'add_config', config_type:configType, value:value, token:API_TOKEN};
   if(item) payload.item=item;
   try{
     await fetchRetry(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)},3,1500,'config sync');
@@ -395,7 +395,7 @@ async function submitForm(){
   if(!SCRIPT_URL){showToast('err','Not Connected','Set up the script URL first.');return;}
   const btn=document.getElementById('submitBtn');
   const tt=getTimeSpent();
-  const data={action:'submit', date:document.getElementById('date').value,
+  const data={action:'submit', token:API_TOKEN, date:document.getElementById('date').value,
     item:document.getElementById('item').value, operation:document.getElementById('operation').value,
     start_time:document.getElementById('start_time').value, end_time:document.getElementById('end_time').value,
     quantity:document.getElementById('quantity').value, job_number:document.getElementById('job_number').value, issues:getIssues(), comments:document.getElementById('comments').value};

@@ -334,7 +334,7 @@ async function loadIdeas(){
   const inboxSection=document.getElementById('inboxSection');
   status.style.display='block';matrixWrap.style.display='none';inboxSection.style.display='none';
   try{
-    const res=await fetch(SCRIPT_URL+'?page=ideas');
+    const res=await fetch(SCRIPT_URL+'?page=ideas&token='+API_TOKEN);
     const data=await res.json();
     if(data.error) throw new Error(data.error);
     IDEAS=data.ideas||[];
@@ -512,7 +512,7 @@ async function submitIdea(){
   const btn=document.getElementById('btnSubmitIdea');
   btn.classList.add('loading');
   try{
-    const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'submitIdea',name,title,category})});
+    const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'submitIdea',name,title,category,token:API_TOKEN})});
     const result=await res.json();
     if(result.success){
       IDEAS.push(result.idea);
@@ -567,6 +567,7 @@ async function submitEdit(){
     if(valueSel) payload.value=valueSel.dataset.val;
     if(effortSel) payload.effort=effortSel.dataset.val;
     if(ratedBy) payload.rated_by=ratedBy;
+    payload.token=API_TOKEN;
     const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)});
     const result=await res.json();
     if(result.success){
@@ -583,7 +584,7 @@ async function deleteIdea(){
   const btn=document.getElementById('btnDeleteIdea');
   btn.textContent='Deleting...';
   try{
-    const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'deleteIdea',id:ratingIdeaId})});
+    const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'deleteIdea',id:ratingIdeaId,token:API_TOKEN})});
     const result=await res.json();
     if(result.success){
       IDEAS=IDEAS.filter(i=>i.id!=ratingIdeaId);

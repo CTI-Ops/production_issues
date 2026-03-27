@@ -210,6 +210,7 @@ function submitBug() {
     headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({
       action: 'bug_report',
+      token: API_TOKEN,
       page: window._bugPageName || 'Unknown',
       description: desc,
       steps: document.getElementById('bugSteps').value
