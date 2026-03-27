@@ -22,6 +22,7 @@ function showAlert(message, type = 'info') {
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
+    // Safe: message values are hardcoded internal strings (contain emoji like ✅ ❌ ⚠️), not user-controlled
     toast.innerHTML = message;
     container.appendChild(toast);
 
@@ -48,26 +49,26 @@ function switchUploadType(type) {
 }
 
 function updateJobHistory(jobNumber) {
-    if (!jobHistory.includes(jobNumber)) {
-        jobHistory.unshift(jobNumber);
-        jobHistory = jobHistory.slice(0, 5);
-        localStorage.setItem('sensorJobHistory', JSON.stringify(jobHistory));
+    if (!SensorQC.jobHistory.includes(jobNumber)) {
+        SensorQC.jobHistory.unshift(jobNumber);
+        SensorQC.jobHistory = SensorQC.jobHistory.slice(0, 5);
+        localStorage.setItem('sensorJobHistory', JSON.stringify(SensorQC.jobHistory));
     }
 
     // Calculate and store job statistics
-    if (analysisResults && analysisResults.length > 0) {
-        const total = analysisResults.length;
-        const passed = analysisResults.filter(r => ['PASS', 'TT', 'OT+', 'BL'].includes(r['Pass/Fail'])).length;
-        const failed = analysisResults.filter(r => ['FL', 'FH', 'OT-', 'FAIL'].includes(r['Pass/Fail'])).length;
+    if (SensorQC.analysisResults && SensorQC.analysisResults.length > 0) {
+        const total = SensorQC.analysisResults.length;
+        const passed = SensorQC.analysisResults.filter(r => ['PASS', 'TT', 'OT+', 'BL'].includes(r['Pass/Fail'])).length;
+        const failed = SensorQC.analysisResults.filter(r => ['FL', 'FH', 'OT-', 'FAIL'].includes(r['Pass/Fail'])).length;
         const counted = passed + failed;
         const passedPct = counted > 0 ? (passed / counted * 100) : 0;
         const failedPct = counted > 0 ? (failed / counted * 100) : 0;
 
         // Remove existing entry for this job if present
-        jobStatsHistory = jobStatsHistory.filter(j => j.jobNumber !== jobNumber);
+        SensorQC.jobStatsHistory = SensorQC.jobStatsHistory.filter(j => j.jobNumber !== jobNumber);
 
         // Add new entry at the beginning
-        jobStatsHistory.unshift({
+        SensorQC.jobStatsHistory.unshift({
             jobNumber: jobNumber,
             totalSensors: total,
             passedQty: passed,
@@ -78,8 +79,8 @@ function updateJobHistory(jobNumber) {
         });
 
         // Keep only last 5 jobs
-        jobStatsHistory = jobStatsHistory.slice(0, 5);
-        localStorage.setItem('sensorJobStatsHistory', JSON.stringify(jobStatsHistory));
+        SensorQC.jobStatsHistory = SensorQC.jobStatsHistory.slice(0, 5);
+        localStorage.setItem('sensorJobStatsHistory', JSON.stringify(SensorQC.jobStatsHistory));
     }
 
     renderJobHistory();
@@ -87,15 +88,15 @@ function updateJobHistory(jobNumber) {
 
 function renderJobHistory() {
     const container = document.getElementById('jobHistory');
-    if (jobHistory.length === 0) {
+    if (SensorQC.jobHistory.length === 0) {
         container.innerHTML = '<div style="color: #888; font-size: 0.85rem;">No recent jobs</div>';
         return;
     }
 
     // Show only the 5 most recent jobs
-    const recentJobs = jobHistory.slice(0, 5);
+    const recentJobs = SensorQC.jobHistory.slice(0, 5);
     container.innerHTML = recentJobs.map(job => `
-        <div class="job-history-item" onclick="loadHistoryJob('${job}')">🔄 Job ${job}</div>
+        <div class="job-history-item" onclick="loadHistoryJob('${esc(job)}')">🔄 Job ${esc(job)}</div>
     `).join('');
 }
 
@@ -131,7 +132,7 @@ function renderMetrics(results, thresholdSet) {
     document.getElementById('metricsGrid').innerHTML = `
         <div class="metric">
             <div class="metric-label">Job Number</div>
-            <div class="metric-value">${currentJob || '—'}</div>
+            <div class="metric-value">${esc(SensorQC.currentJob || '—')}</div>
         </div>
         <div class="metric">
             <div class="metric-label">Total Sensors</div>
@@ -156,15 +157,15 @@ function renderMetrics(results, thresholdSet) {
 
 function renderStatusFilters(results) {
     const statuses = [...new Set(results.map(r => r['Pass/Fail']))].sort(
-        (a, b) => (STATUS_PRIORITY[a] || 99) - (STATUS_PRIORITY[b] || 99)
+        (a, b) => (SensorQC.STATUS_PRIORITY[a] || 99) - (SensorQC.STATUS_PRIORITY[b] || 99)
     );
     
     const container = document.getElementById('statusFilters');
     container.innerHTML = statuses.map(status => {
         const count = results.filter(r => r['Pass/Fail'] === status).length;
-        const isActive = activeFilters.has(status);
+        const isActive = SensorQC.activeFilters.has(status);
         return `
-            <div class="filter-pill filter-${status} ${isActive ? 'active' : ''}" 
+            <div class="filter-pill filter-${status} ${isActive ? 'active' : ''}"
                  onclick="toggleFilter('${status}')" data-status="${status}">
                 ${status} (${count})
             </div>
@@ -173,47 +174,47 @@ function renderStatusFilters(results) {
 }
 
 function toggleFilter(status) {
-    if (activeFilters.has(status)) {
-        activeFilters.delete(status);
+    if (SensorQC.activeFilters.has(status)) {
+        SensorQC.activeFilters.delete(status);
     } else {
-        activeFilters.add(status);
+        SensorQC.activeFilters.add(status);
     }
-    
+
     document.querySelectorAll('.filter-pill').forEach(pill => {
-        pill.classList.toggle('active', activeFilters.has(pill.dataset.status));
+        pill.classList.toggle('active', SensorQC.activeFilters.has(pill.dataset.status));
     });
     
     renderTable();
 }
 
 function renderTable() {
-    if (!analysisResults) return;
+    if (!SensorQC.analysisResults) return;
 
     // Delegate to multi-job table rendering if in multi-job mode
-    if (multiJobMode && multiJobResults.size > 0) {
-        renderMultiJobTable(currentTier);
+    if (SensorQC.multiJobMode && SensorQC.multiJobResults.size > 0) {
+        renderMultiJobTable(SensorQC.currentTier);
         return;
     }
 
     const searchText = document.getElementById('serialSearch').value.toLowerCase();
     const searchTerms = searchText.split(',').map(t => t.trim()).filter(t => t);
     
-    let filtered = analysisResults.filter(r => activeFilters.has(r['Pass/Fail']));
-    
+    let filtered = SensorQC.analysisResults.filter(r => SensorQC.activeFilters.has(r['Pass/Fail']));
+
     if (searchTerms.length > 0) {
         filtered = filtered.filter(r => {
             const serial = r['Serial Number'].toLowerCase();
             return searchTerms.some(term => serial.includes(term));
         });
     }
-    
-    document.getElementById('filterInfo').textContent = 
-        `Showing ${filtered.length} of ${analysisResults.length} sensors`;
-    
+
+    document.getElementById('filterInfo').textContent =
+        `Showing ${filtered.length} of ${SensorQC.analysisResults.length} sensors`;
+
     const headerRow = document.getElementById('tableHeader');
     const columns = ['Serial Number', 'Channel', 'Pass/Fail', '120s(MaxΔ)'];
 
-    const maxTests = Math.max(...analysisResults.map(r => r.testCount || 1));
+    const maxTests = Math.max(...SensorQC.analysisResults.map(r => r.testCount || 1));
     for (let i = 1; i <= maxTests; i++) {
         columns.push(`0s(T${i})`, `120s(T${i})`, `%Chg(T${i})`, `Status(T${i})`);
     }
@@ -229,17 +230,17 @@ function renderTable() {
         else if (['TT', 'OT+', 'BL'].includes(status)) rowClass = 'row-warning';
 
         // Find the index of this row in the original analysisResults
-        const originalIndex = analysisResults.findIndex(r => r['Serial Number'] === row['Serial Number']);
+        const originalIndex = SensorQC.analysisResults.findIndex(r => r['Serial Number'] === row['Serial Number']);
 
         // Create editable status dropdown with only existing status codes
-        const statusOptions = Object.keys(STATUS_PRIORITY).map(s =>
+        const statusOptions = Object.keys(SensorQC.STATUS_PRIORITY).map(s =>
             `<option value="${s}" ${s === status ? 'selected' : ''}>${s}</option>`
         ).join('');
         const statusDropdown = `<select class="status-select status-${status}" onchange="updateSensorStatus(${originalIndex}, this.value)" title="Click to change status">${statusOptions}</select>`;
 
         const cells = [
-            row['Serial Number'],
-            row['Channel'],
+            esc(row['Serial Number']),
+            esc(row['Channel']),
             statusDropdown,
             row['120s(MaxΔ)'].toFixed(4)
         ];
@@ -263,33 +264,33 @@ function renderTable() {
 }
 
 function updateSensorStatus(index, newStatus) {
-    if (index < 0 || index >= analysisResults.length) return;
+    if (index < 0 || index >= SensorQC.analysisResults.length) return;
 
-    const serialNumber = analysisResults[index]['Serial Number'];
+    const serialNumber = SensorQC.analysisResults[index]['Serial Number'];
 
     // Update the status in analysisResults
-    analysisResults[index]['Pass/Fail'] = newStatus;
+    SensorQC.analysisResults[index]['Pass/Fail'] = newStatus;
 
     // Save override to localStorage
-    saveStatusOverride(currentJob, serialNumber, newStatus);
+    saveStatusOverride(SensorQC.currentJob, serialNumber, newStatus);
 
     // Re-render the table to update row styling and dropdown appearance
     renderTable();
 
     // Update metrics to reflect changes
     const thresholdSet = document.getElementById('thresholdSet').value;
-    renderMetrics(analysisResults, thresholdSet);
+    renderMetrics(SensorQC.analysisResults, thresholdSet);
 
     // Update status filters to reflect any count changes
-    renderStatusFilters(analysisResults);
+    renderStatusFilters(SensorQC.analysisResults);
 
     // Update charts to reflect the status change
-    if (currentJobData) {
-        renderCharts(analysisResults, currentJobData, thresholdSet);
+    if (SensorQC.currentJobData) {
+        renderCharts(SensorQC.analysisResults, SensorQC.currentJobData, thresholdSet);
     }
 
     // Update sidebar job history stats
-    updateJobHistory(currentJob);
+    updateJobHistory(SensorQC.currentJob);
 }
 
 function saveStatusOverride(jobNumber, serialNumber, status) {
@@ -339,7 +340,7 @@ function renderAnomalies(anomalies) {
     const uniqueSerials = [...new Set(anomalies.map(a => a.serial))];
     list.innerHTML = anomalies.map(a => `
         <div class="anomaly-item anomaly-${a.severity.toLowerCase()}">
-            <strong>${a.serial}</strong> (Channel: ${a.channel}) — ${a.type}: ${a.message}
+            <strong>${esc(a.serial)}</strong> (Channel: ${esc(a.channel)}) — ${esc(a.type)}: ${esc(a.message)}
         </div>
     `).join('') + `<a class="anomaly-view-link" onclick="viewAnomaliesInTable('${uniqueSerials.join(',')}')">View anomalies in data table</a>`;
 }
@@ -373,7 +374,7 @@ function renderJobChips(jobNumbers) {
     const remaining = jobNumbers.length - maxShow;
 
     container.innerHTML = shown.map(j =>
-        `<span class="job-chip">${j}<span class="chip-remove" onclick="removeJobChip('${j}')">&times;</span></span>`
+        `<span class="job-chip">${esc(j)}<span class="chip-remove" onclick="removeJobChip('${esc(j)}')">&times;</span></span>`
     ).join('') + (remaining > 0 ? `<span class="job-chip">+${remaining} more</span>` : '');
 
     const baseTier = getDisplayTier(jobNumbers.length);
@@ -412,7 +413,7 @@ function removeJobChip(jobNumber) {
 
 function renderMultiJobMetrics(tier) {
     const grid = document.getElementById('metricsGrid');
-    const jobs = [...multiJobResults.entries()];
+    const jobs = [...SensorQC.multiJobResults.entries()];
     const thresholdSet = document.getElementById('thresholdSet').value;
 
     if (tier === 'few') {
@@ -434,7 +435,7 @@ function renderMultiJobMetrics(tier) {
             const isBest = jobNum === bestJob && jobs.length > 1;
             const isWorst = jobNum === worstJob && jobs.length > 1 && bestJob !== worstJob;
             html += `<tr class="${isBest ? 'highlight-best' : isWorst ? 'highlight-worst' : ''}">
-                <td><strong>${jobNum}</strong></td>
+                <td><strong>${esc(jobNum)}</strong></td>
                 <td>${data.stats.total}</td>
                 <td style="color: var(--success); font-weight:700;">${data.stats.passRate.toFixed(1)}%</td>
                 <td style="color: var(--danger); font-weight:700;">${data.stats.failRate.toFixed(1)}%</td>
@@ -500,7 +501,7 @@ function renderMultiJobTable(tier) {
     const headerRow = document.getElementById('tableHeader');
     const tbody = document.getElementById('tableBody');
     const filterInfo = document.getElementById('filterInfo');
-    const jobs = [...multiJobResults.entries()];
+    const jobs = [...SensorQC.multiJobResults.entries()];
 
     if (tier === 'few') {
         // Full sensor table with Job # column prepended, grouped by job
@@ -525,7 +526,7 @@ function renderMultiJobTable(tier) {
         let rowsHTML = '';
 
         for (const [jobNum, data] of jobs) {
-            let filtered = data.results.filter(r => activeFilters.has(r['Pass/Fail']));
+            let filtered = data.results.filter(r => SensorQC.activeFilters.has(r['Pass/Fail']));
             totalAll += data.results.length;
 
             if (searchTerms.length > 0) {
@@ -537,7 +538,7 @@ function renderMultiJobTable(tier) {
             totalShown += filtered.length;
 
             // Job group header
-            rowsHTML += `<tr class="job-group-header"><td colspan="${columns.length}">Job ${jobNum} — ${data.results.length} sensors (${data.stats.passRate.toFixed(1)}% pass)</td></tr>`;
+            rowsHTML += `<tr class="job-group-header"><td colspan="${columns.length}">Job ${esc(jobNum)} — ${data.results.length} sensors (${data.stats.passRate.toFixed(1)}% pass)</td></tr>`;
 
             rowsHTML += filtered.map(row => {
                 const status = row['Pass/Fail'];
@@ -546,8 +547,8 @@ function renderMultiJobTable(tier) {
                 else if (status === 'PASS') rowClass = 'row-pass';
                 else if (['TT', 'OT+', 'BL'].includes(status)) rowClass = 'row-warning';
 
-                const statusPill = `<span class="status-pill status-${status}">${status}</span>`;
-                const cells = [jobNum, row['Serial Number'], row['Channel'], statusPill, row['120s(MaxΔ)'].toFixed(4)];
+                const statusPill = `<span class="status-pill status-${status}">${esc(status)}</span>`;
+                const cells = [esc(jobNum), esc(row['Serial Number']), esc(row['Channel']), statusPill, row['120s(MaxΔ)'].toFixed(4)];
                 for (let i = 1; i <= globalMaxTests; i++) {
                     const v0 = row[`0s(T${i})`];
                     const v120 = row[`120s(T${i})`];
@@ -594,7 +595,7 @@ function renderMultiJobTable(tier) {
             const t3 = stats.testStats[3];
             return `<tr class="${rowClass}">
                 <td style="font-weight:700; color: var(--primary);">#${idx + 1}</td>
-                <td><strong>${jobNum}</strong></td>
+                <td><strong>${esc(jobNum)}</strong></td>
                 <td>${stats.total}</td>
                 <td>${t1 ? (t1.total > 0 ? (t1.passed / t1.total * 100).toFixed(1) + '%' : '—') : '—'}</td>
                 <td>${t2 ? (t2.total > 0 ? (t2.passed / t2.total * 100).toFixed(1) + '%' : '—') : '—'}</td>
@@ -667,7 +668,7 @@ function renderMultiJobTable(tier) {
             }
 
             return `<tr>
-                <td><strong>${jobNum}</strong></td>
+                <td><strong>${esc(jobNum)}</strong></td>
                 <td>${stats.total}</td>
                 <td>${t1 ? (t1.total > 0 ? (t1.passed / t1.total * 100).toFixed(1) + '%' : '—') : '—'}</td>
                 <td>${t2 ? (t2.total > 0 ? (t2.passed / t2.total * 100).toFixed(1) + '%' : '—') : '—'}</td>
@@ -695,12 +696,12 @@ function renderMultiJobAnomalies(tier) {
     const section = document.getElementById('anomalySection');
     const list = document.getElementById('anomalyList');
     const preview = document.getElementById('anomalyPreview');
-    const jobs = [...multiJobResults.entries()];
+    const jobs = [...SensorQC.multiJobResults.entries()];
 
     if (tier === 'few') {
         const allAnomalies = [];
         const thresholdSet = document.getElementById('thresholdSet').value;
-        const thresholds = THRESHOLDS[thresholdSet];
+        const thresholds = SensorQC.THRESHOLDS[thresholdSet];
         jobs.forEach(([jobNum, data]) => {
             const anomalies = detectAnomalies(data.results, thresholds);
             anomalies.forEach(a => { a.jobNum = jobNum; });
@@ -713,7 +714,7 @@ function renderMultiJobAnomalies(tier) {
         const uniqueSerials = [...new Set(allAnomalies.map(a => a.serial))];
         list.innerHTML = allAnomalies.map(a => `
             <div class="anomaly-item anomaly-${a.severity.toLowerCase()}">
-                <strong>Job ${a.jobNum} — ${a.serial}</strong> (Channel: ${a.channel}) — ${a.type}: ${a.message}
+                <strong>Job ${esc(a.jobNum)} — ${esc(a.serial)}</strong> (Channel: ${esc(a.channel)}) — ${esc(a.type)}: ${esc(a.message)}
             </div>
         `).join('') + `<a class="anomaly-view-link" onclick="viewAnomaliesInTable('${uniqueSerials.join(',')}')">View anomalies in data table</a>`;
     } else if (tier === 'many') {
@@ -721,7 +722,7 @@ function renderMultiJobAnomalies(tier) {
         const issues = [];
         const highFailJobs = jobs.filter(([, d]) => d.stats.failRate > 20);
         if (highFailJobs.length > 0) {
-            issues.push(`<div class="anomaly-item anomaly-high"><strong>${highFailJobs.length} job(s)</strong> have >20% fail rate: ${highFailJobs.map(([j]) => j).join(', ')}</div>`);
+            issues.push(`<div class="anomaly-item anomaly-high"><strong>${highFailJobs.length} job(s)</strong> have >20% fail rate: ${highFailJobs.map(([j]) => esc(j)).join(', ')}</div>`);
         }
 
         const passRates = jobs.map(([, d]) => d.stats.passRate);
@@ -729,7 +730,7 @@ function renderMultiJobAnomalies(tier) {
         const stdDev = calculateStdDev(passRates);
         const outliers = jobs.filter(([, d]) => Math.abs(d.stats.passRate - mean) > stdDev * 2);
         if (outliers.length > 0) {
-            issues.push(`<div class="anomaly-item anomaly-medium"><strong>${outliers.length} job(s)</strong> are statistical outliers (>2σ): ${outliers.map(([j, d]) => `${j} (${d.stats.passRate.toFixed(1)}%)`).join(', ')}</div>`);
+            issues.push(`<div class="anomaly-item anomaly-medium"><strong>${outliers.length} job(s)</strong> are statistical outliers (>2σ): ${outliers.map(([j, d]) => `${esc(j)} (${d.stats.passRate.toFixed(1)}%)`).join(', ')}</div>`);
         }
 
         // Bimodal distribution detection
@@ -780,13 +781,13 @@ function renderMultiJobAnomalies(tier) {
         // High fail rate jobs
         const highFailJobs = sortedJobs.filter(([, d]) => d.stats.failRate > 20);
         if (highFailJobs.length > 0) {
-            issues.push(`<div class="anomaly-item anomaly-high"><strong>${highFailJobs.length} job(s)</strong> have >20% fail rate: ${highFailJobs.map(([j]) => j).join(', ')}</div>`);
+            issues.push(`<div class="anomaly-item anomaly-high"><strong>${highFailJobs.length} job(s)</strong> have >20% fail rate: ${highFailJobs.map(([j]) => esc(j)).join(', ')}</div>`);
         }
 
         // Statistical outliers
         const outliers = sortedJobs.filter(([, d]) => Math.abs(d.stats.passRate - mean) > stdDev * 2);
         if (outliers.length > 0) {
-            issues.push(`<div class="anomaly-item anomaly-medium"><strong>${outliers.length} outlier(s)</strong> (>2σ): ${outliers.map(([j, d]) => `${j} (${d.stats.passRate.toFixed(1)}%)`).join(', ')}</div>`);
+            issues.push(`<div class="anomaly-item anomaly-medium"><strong>${outliers.length} outlier(s)</strong> (>2σ): ${outliers.map(([j, d]) => `${esc(j)} (${d.stats.passRate.toFixed(1)}%)`).join(', ')}</div>`);
         }
 
         // Consecutive decline detection
@@ -795,7 +796,7 @@ function renderMultiJobAnomalies(tier) {
         if (maxDecline.len >= 3) {
             const endIdx = runs.lastIndexOf(maxDecline);
             const startIdx = endIdx - maxDecline.len + 1;
-            issues.push(`<div class="anomaly-item anomaly-high"><strong>${maxDecline.len} consecutive declines</strong> from Job ${jobNums[startIdx]} to ${jobNums[endIdx]} (${passRates[startIdx].toFixed(1)}% → ${passRates[endIdx].toFixed(1)}%)</div>`);
+            issues.push(`<div class="anomaly-item anomaly-high"><strong>${maxDecline.len} consecutive declines</strong> from Job ${esc(jobNums[startIdx])} to ${esc(jobNums[endIdx])} (${passRates[startIdx].toFixed(1)}% → ${passRates[endIdx].toFixed(1)}%)</div>`);
         }
 
         // Recent degradation (last 3 jobs vs overall)
@@ -813,7 +814,7 @@ function renderMultiJobAnomalies(tier) {
                 const prevMA = calculateMean(passRates.slice(i - windowSize, i));
                 const currMA = calculateMean(passRates.slice(i - windowSize + 1, i + 1));
                 if (prevMA >= mean && currMA < mean) {
-                    issues.push(`<div class="anomaly-item anomaly-medium"><strong>Process shift detected</strong> at Job ${jobNums[i]} — moving average crossed below overall mean (${mean.toFixed(1)}%)</div>`);
+                    issues.push(`<div class="anomaly-item anomaly-medium"><strong>Process shift detected</strong> at Job ${esc(jobNums[i])} — moving average crossed below overall mean (${mean.toFixed(1)}%)</div>`);
                     break; // Only report first shift
                 }
             }

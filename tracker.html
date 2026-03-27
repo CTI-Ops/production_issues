@@ -4,24 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Production Log</title>
+<link rel="stylesheet" href="shared/theme.css">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #0e1117; --bg-card: #161b22; --bg-input: #0d1117; --bg-hover: #1c2333;
-    --border: #30363d; --border-focus: #4a7fb5; --text: #e6edf3; --text-dim: #8b949e;
-    --text-muted: #484f58; --accent: #4a7fb5; --accent-hover: #5a8fc5;
-    --accent-glow: rgba(74,127,181,0.12); --green: #3fb950; --green-bg: rgba(63,185,80,0.08);
-    --red: #f85149; --red-bg: rgba(248,81,73,0.08); --radius: 8px; --radius-lg: 12px;
-  }
   html { font-size: 15px; }
   body { font-family: 'DM Sans', -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.5; overflow-x: hidden; }
   html { overflow-x: hidden; }
-  header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 0.9rem 1.5rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; backdrop-filter: blur(12px); }
-  .logo { display: flex; align-items: center; gap: 0.7rem; }
-  .logo-mark { width: 28px; height: 28px; background: var(--accent); border-radius: 6px; display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.75rem; color: #000; }
-  .logo-text { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; }
-  .header-meta { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--text-muted); }
   main { max-width: 680px; margin: 0 auto; padding: 1.5rem 1rem 6rem; }
   .conn-status { text-align: center; padding: 2rem 1rem; color: var(--text-dim); font-size: 0.85rem; }
   .conn-status .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 0.5rem; }
@@ -107,35 +94,11 @@
   .add-new-row button { font-family: 'DM Sans', sans-serif; font-size: 0.75rem; font-weight: 600; padding: 0.4rem 0.7rem; border-radius: 6px; cursor: pointer; border: none; flex-shrink: 0; }
   .add-new-row .btn-add { background: var(--accent); color: #000; }
   .add-new-row .btn-cancel { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
-  .nav-link { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--accent); text-decoration: none; padding: 0.3rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; transition: all 0.15s; }
-  .nav-link:hover { background: var(--accent-glow); border-color: var(--accent); }
   .log-section { margin-top: 0.75rem; }
   .log-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .log-table { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; }
   .log-table th { text-align: left; padding: 0.4rem 0.5rem; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); border-bottom: 1px solid var(--border); }
   .log-table td { padding: 0.35rem 0.5rem; border-bottom: 1px solid rgba(48,54,61,0.4); color: var(--text-dim); }
-
-  /* Bug Report */
-  .bug-btn { position: fixed; bottom: 1.2rem; right: 1.2rem; z-index: 90; width: 40px; height: 40px; border-radius: 50%; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-dim); font-size: 1.1rem; cursor: pointer; display: grid; place-items: center; transition: all 0.15s; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
-  .bug-btn:hover { border-color: var(--accent); color: var(--accent); box-shadow: 0 2px 16px var(--accent-glow); }
-  .bug-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(10,13,19,0.88); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
-  .bug-overlay.open { opacity: 1; pointer-events: all; }
-  .bug-modal { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); width: 400px; max-width: 92vw; overflow: hidden; }
-  .bug-modal-head { padding: 0.7rem 1rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-  .bug-modal-head h3 { font-size: 0.85rem; font-weight: 700; }
-  .bug-modal-head button { background: none; border: none; color: var(--text-muted); font-size: 1.1rem; cursor: pointer; padding: 0 0.3rem; }
-  .bug-modal-head button:hover { color: var(--text); }
-  .bug-modal-body { padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
-  .bug-modal-body label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); display: block; margin-bottom: 0.25rem; }
-  .bug-modal-body textarea { width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; color: var(--text); background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.55rem 0.75rem; outline: none; resize: vertical; min-height: 70px; transition: border-color 0.15s; }
-  .bug-modal-body textarea:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--accent-glow); }
-  .bug-modal-body textarea::placeholder { color: var(--text-muted); font-style: italic; }
-  .bug-submit { width: 100%; padding: 0.55rem; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 600; color: #000; background: var(--accent); border: none; border-radius: var(--radius); cursor: pointer; transition: background 0.15s; }
-  .bug-submit:hover { background: var(--accent-hover); }
-  .bug-submit:disabled { opacity: 0.5; cursor: not-allowed; }
-  .bug-toast { position: fixed; bottom: 4.5rem; right: 1.2rem; z-index: 110; background: var(--bg-card); border: 1px solid var(--green); border-radius: var(--radius); padding: 0.5rem 1rem; font-size: 0.78rem; color: var(--green); font-weight: 600; opacity: 0; transform: translateY(8px); transition: all 0.2s; pointer-events: none; }
-  .bug-toast.show { opacity: 1; transform: translateY(0); }
-  .bug-toast.err { border-color: var(--red); color: var(--red); }
 </style>
 </head>
 <body>
@@ -206,14 +169,12 @@
 </main>
 <div class="toast" id="toast"><button class="toast-x" onclick="hideToast()">&times;</button><div class="toast-title" id="toastTitle"></div><div class="toast-body" id="toastBody"></div></div>
 
+<script src="shared/config.js"></script>
+<script src="shared/utils.js"></script>
 <script>
-const DEFAULT_SCRIPT_URL='https://script.google.com/macros/s/AKfycbym96HitpBQ6DdZ6O7aZ5ZWAk18xX2PS3z4-6GnZ1Ypz3OPQ3Nakt4lQY3OpbMdbKTlkA/exec';
-const storedUrl=localStorage.getItem('prodlog_script_url');
-if(storedUrl && storedUrl!==DEFAULT_SCRIPT_URL){localStorage.removeItem('prodlog_script_url');}
-let CONFIG=null, SCRIPT_URL=DEFAULT_SCRIPT_URL, sessionEntries=[], toastTimer=null;
+let CONFIG=null, sessionEntries=[], toastTimer=null;
 
 async function init(){
-  updateClock(); setInterval(updateClock,1000);
   document.getElementById('date').value=new Date().toISOString().split('T')[0];
   if(SCRIPT_URL){document.getElementById('scriptUrl').value=SCRIPT_URL; await loadConfig();}
   ['start_time','end_time','quantity','operation'].forEach(id=>{
@@ -454,7 +415,7 @@ async function submitForm(){
 function addToLog(id,data,calc){
   sessionEntries.push({id,data,calc}); document.getElementById('logSection').style.display='block';
   const body=document.getElementById('logBody'), tr=document.createElement('tr');
-  tr.innerHTML='<td>'+sessionEntries.length+'</td><td>'+data.item+'<br><span style="font-size:0.68rem;opacity:0.7">'+data.operation+'</span></td><td>'+calc.task_time_min+'m</td><td>'+data.quantity+'</td><td>'+calc.time_per_part+'</td>';
+  tr.innerHTML='<td>'+sessionEntries.length+'</td><td>'+esc(data.item)+'<br><span style="font-size:0.68rem;opacity:0.7">'+esc(data.operation)+'</span></td><td>'+esc(calc.task_time_min)+'m</td><td>'+esc(data.quantity)+'</td><td>'+esc(calc.time_per_part)+'</td>';
   body.insertBefore(tr,body.firstChild);
 }
 
@@ -469,7 +430,6 @@ function resetForm(){document.getElementById('date').value=new Date().toISOStrin
 
 function showToast(type,title,body){const t=document.getElementById('toast'); const icon=type==='ok'?'\u2713 ':type==='warn'?'\u26A0 ':'\u2717 '; document.getElementById('toastTitle').textContent=icon+title; document.getElementById('toastBody').textContent=body; t.className='toast '+type+' show'; if(toastTimer) clearTimeout(toastTimer); toastTimer=setTimeout(hideToast,7000);}
 function hideToast(){document.getElementById('toast').classList.remove('show');}
-function updateClock(){document.getElementById('clock').textContent=new Date().toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});}
 var _eeClicks=0,_eeTimer=null;
 document.getElementById('logoMark').addEventListener('click',function(){
   _eeClicks++;
@@ -479,33 +439,9 @@ document.getElementById('logoMark').addEventListener('click',function(){
 });
 init();
 
-function submitBug(){
-  var desc=document.getElementById('bugDesc').value.trim();
-  if(!desc){showBugToast('Please enter a description.','err');return;}
-  var btn=document.getElementById('bugSubmit');btn.disabled=true;btn.textContent='Sending...';
-  fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'bug_report',page:'Tracker',description:desc,steps:document.getElementById('bugSteps').value})})
-  .then(function(r){return r.json();})
-  .then(function(d){
-    if(d.success){document.getElementById('bugDesc').value='';document.getElementById('bugSteps').value='';document.getElementById('bugOverlay').classList.remove('open');showBugToast('Bug report sent!');}
-    else{showBugToast(d.error||'Failed to send.','err');}
-  })
-  .catch(function(){showBugToast('Network error.','err');})
-  .finally(function(){btn.disabled=false;btn.textContent='Submit Report';});
-}
-function showBugToast(msg,type){var t=document.getElementById('bugToast');t.textContent=msg;t.className='bug-toast show'+(type?' '+type:'');setTimeout(function(){t.className='bug-toast';},3000);}
+
 </script>
 
-<button class="bug-btn" onclick="document.getElementById('bugOverlay').classList.add('open')" title="Report a Bug">&#x1F41B;</button>
-<div class="bug-overlay" id="bugOverlay" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="bug-modal">
-    <div class="bug-modal-head"><h3>Report a Bug</h3><button onclick="document.getElementById('bugOverlay').classList.remove('open')">&times;</button></div>
-    <div class="bug-modal-body">
-      <div><label>Description <span style="color:var(--accent)">*</span></label><textarea id="bugDesc" placeholder="What went wrong?" rows="3"></textarea></div>
-      <div><label>Steps to Reproduce</label><textarea id="bugSteps" placeholder="1. Go to...&#10;2. Click on...&#10;3. See error" rows="3"></textarea></div>
-      <button class="bug-submit" id="bugSubmit" onclick="submitBug()">Submit Report</button>
-    </div>
-  </div>
-</div>
-<div class="bug-toast" id="bugToast"></div>
+<script>initBugModal('Tracker');</script>
 </body>
 </html>

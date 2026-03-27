@@ -1,0 +1,50 @@
+/* ============================================================
+   Shared Theme - Operations Portal
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0e1117; --bg-card: #161b22; --bg-input: #0d1117; --bg-hover: #1c2333;
+  --border: #30363d; --border-focus: #4a7fb5; --text: #e6edf3; --text-dim: #8b949e;
+  --text-muted: #484f58; --accent: #4a7fb5; --accent-hover: #5a8fc5;
+  --accent-glow: rgba(74,127,181,0.12);
+  --green: #3fb950; --green-bg: rgba(63,185,80,0.12); --green-border: rgba(63,185,80,0.3);
+  --blue: #58a6ff; --blue-bg: rgba(88,166,255,0.1); --blue-border: rgba(88,166,255,0.3);
+  --yellow: #d29922; --yellow-bg: rgba(210,153,34,0.1); --yellow-border: rgba(210,153,34,0.3);
+  --red: #f85149; --red-bg: rgba(248,81,73,0.1); --red-border: rgba(248,81,73,0.3);
+  --radius: 8px; --radius-lg: 12px;
+}
+
+/* ── Header & Navigation ── */
+header, .page-header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 0.9rem 1.5rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; backdrop-filter: blur(12px); }
+.logo { display: flex; align-items: center; gap: 0.7rem; }
+.logo-mark { width: 28px; height: 28px; background: var(--accent); border-radius: 6px; display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.75rem; color: #000; }
+.logo-text { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; }
+.nav-link { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--accent); text-decoration: none; padding: 0.3rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; transition: all 0.15s; }
+.nav-link:hover { background: var(--accent-glow); border-color: var(--accent); }
+.header-meta { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--text-muted); }
+
+/* ── Bug Report Modal ── */
+.bug-btn { position: fixed; bottom: 1.2rem; right: 1.2rem; z-index: 90; width: 40px; height: 40px; border-radius: 50%; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-dim); font-size: 1.1rem; cursor: pointer; display: grid; place-items: center; transition: all 0.15s; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+.bug-btn:hover { border-color: var(--accent); color: var(--accent); box-shadow: 0 2px 16px var(--accent-glow); }
+.bug-overlay { position: fixed; inset: 0; z-index: 10000; background: rgba(10,13,19,0.88); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.bug-overlay.open { opacity: 1; pointer-events: all; }
+.bug-modal { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); width: 400px; max-width: 92vw; overflow: hidden; }
+.bug-modal-head { padding: 0.7rem 1rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.bug-modal-head h3 { font-size: 0.85rem; font-weight: 700; }
+.bug-modal-head button { background: none; border: none; color: var(--text-muted); font-size: 1.1rem; cursor: pointer; padding: 0 0.3rem; }
+.bug-modal-head button:hover { color: var(--text); }
+.bug-modal-body { padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.bug-modal-body label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); display: block; margin-bottom: 0.25rem; }
+.bug-modal-body textarea { width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; color: var(--text); background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.55rem 0.75rem; outline: none; resize: vertical; min-height: 70px; transition: border-color 0.15s; }
+.bug-modal-body textarea:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--accent-glow); }
+.bug-modal-body textarea::placeholder { color: var(--text-muted); font-style: italic; }
+.bug-submit { width: 100%; padding: 0.55rem; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 600; color: #000; background: var(--accent); border: none; border-radius: var(--radius); cursor: pointer; transition: background 0.15s; }
+.bug-submit:hover { background: var(--accent-hover); }
+.bug-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+.bug-toast { position: fixed; bottom: 4.5rem; right: 1.2rem; z-index: 10010; background: var(--bg-card); border: 1px solid var(--green); border-radius: var(--radius); padding: 0.5rem 1rem; font-size: 0.78rem; color: var(--green); font-weight: 600; opacity: 0; transform: translateY(8px); transition: all 0.2s; pointer-events: none; }
+.bug-toast.show { opacity: 1; transform: translateY(0); }
+.bug-toast.err { border-color: var(--red); color: var(--red); }

@@ -7,11 +7,11 @@
 // ============================================================
 
 function renderCharts(results, jobData, thresholdSet) {
-    const thresholds = THRESHOLDS[thresholdSet];
-    
+    const thresholds = SensorQC.THRESHOLDS[thresholdSet];
+
     // Destroy existing charts
-    Object.values(charts).forEach(chart => chart?.destroy());
-    charts = {};
+    Object.values(SensorQC.charts).forEach(chart => chart?.destroy());
+    SensorQC.charts = {};
     
     // Determine max test count
     const maxTests = Math.max(...results.map(r => r.testCount || 1));
@@ -45,7 +45,7 @@ function renderCharts(results, jobData, thresholdSet) {
         const testData = testGroups[t] || [];
         if (testData.length === 0) continue;
         
-        const timeSeriesData = TIME_POINTS.map(tp => {
+        const timeSeriesData = SensorQC.TIME_POINTS.map(tp => {
             const readings = testData.map(r => r[tp]).filter(v => v !== null && !isNaN(v));
             const mean = readings.length > 0 ? calculateMean(readings) : null;
             return mean !== null ? { x: Number(tp), y: mean } : null;
@@ -54,15 +54,15 @@ function renderCharts(results, jobData, thresholdSet) {
         trendDatasets.push({
             label: `Test ${t} (n=${testData.length})`,
             data: timeSeriesData,
-            borderColor: TEST_COLORS[(t - 1) % TEST_COLORS.length],
-            backgroundColor: TEST_COLORS[(t - 1) % TEST_COLORS.length],
+            borderColor: SensorQC.TEST_COLORS[(t - 1) % SensorQC.TEST_COLORS.length],
+            backgroundColor: SensorQC.TEST_COLORS[(t - 1) % SensorQC.TEST_COLORS.length],
             borderWidth: 2,
             pointRadius: 4,
             tension: 0.1
         });
     }
 
-    charts.trend = new Chart(trendCtx, {
+    SensorQC.charts.trend = new Chart(trendCtx, {
         type: 'line',
         data: {
             datasets: trendDatasets
@@ -141,7 +141,7 @@ function renderCharts(results, jobData, thresholdSet) {
         });
     }
 
-    charts.distribution = new Chart(distCtx, {
+    SensorQC.charts.distribution = new Chart(distCtx, {
         type: 'bar',
         data: {
             labels: binLabels,
@@ -205,11 +205,11 @@ function renderCharts(results, jobData, thresholdSet) {
     const statusDatasets = allStatuses.map(status => ({
         label: status,
         data: Array.from({length: maxTests}, (_, i) => statusByTest[i + 1][status] || 0),
-        backgroundColor: STATUS_COLORS[status],
+        backgroundColor: SensorQC.STATUS_COLORS[status],
         borderWidth: 0
     })).filter(ds => ds.data.some(v => v > 0));
     
-    charts.statusByTest = new Chart(statusByTestCtx, {
+    SensorQC.charts.statusByTest = new Chart(statusByTestCtx, {
         type: 'bar',
         data: {
             labels: Array.from({length: maxTests}, (_, i) => `Test ${i + 1}`),
@@ -238,16 +238,16 @@ function renderCharts(results, jobData, thresholdSet) {
     });
     
     const pieLabels = Object.keys(statusCounts).sort(
-        (a, b) => (STATUS_PRIORITY[a] || 99) - (STATUS_PRIORITY[b] || 99)
+        (a, b) => (SensorQC.STATUS_PRIORITY[a] || 99) - (SensorQC.STATUS_PRIORITY[b] || 99)
     );
     
-    charts.pie = new Chart(pieCtx, {
+    SensorQC.charts.pie = new Chart(pieCtx, {
         type: 'doughnut',
         data: {
             labels: pieLabels,
             datasets: [{
                 data: pieLabels.map(s => statusCounts[s]),
-                backgroundColor: pieLabels.map(s => STATUS_COLORS[s] || '#999'),
+                backgroundColor: pieLabels.map(s => SensorQC.STATUS_COLORS[s] || '#999'),
                 borderWidth: 2,
                 borderColor: '#fff'
             }]
@@ -271,11 +271,11 @@ function renderCharts(results, jobData, thresholdSet) {
         return `
             <div class="status-summary-item">
                 <div class="left">
-                    <span class="status-pill status-${status}">${status}</span>
+                    <span class="status-pill status-${esc(status)}">${esc(status)}</span>
                 </div>
                 <div>
-                    <span class="count">${count}</span>
-                    <span class="pct">(${pct}%)</span>
+                    <span class="count">${esc(count)}</span>
+                    <span class="pct">(${esc(pct)}%)</span>
                 </div>
             </div>
         `;
@@ -326,7 +326,7 @@ function renderCharts(results, jobData, thresholdSet) {
             });
         }
 
-        charts.baselineDist = new Chart(ctx, {
+        SensorQC.charts.baselineDist = new Chart(ctx, {
             type: 'bar',
             data: { labels: baselineBinLabels, datasets: baselineDatasets },
             options: {
@@ -374,8 +374,8 @@ function renderCharts(results, jobData, thresholdSet) {
             trendDatasets.push({
                 label: `Test ${t}`,
                 data: points,
-                backgroundColor: (TEST_COLORS[t - 1] || TEST_COLORS[0]) + '80',
-                borderColor: (TEST_COLORS[t - 1] || TEST_COLORS[0]) + '80',
+                backgroundColor: (SensorQC.TEST_COLORS[t - 1] || SensorQC.TEST_COLORS[0]) + '80',
+                borderColor: (SensorQC.TEST_COLORS[t - 1] || SensorQC.TEST_COLORS[0]) + '80',
                 pointRadius: 4,
                 showLine: false
             });
@@ -403,7 +403,7 @@ function renderCharts(results, jobData, thresholdSet) {
             fill: false
         });
 
-        charts.baselineTrend = new Chart(ctx, {
+        SensorQC.charts.baselineTrend = new Chart(ctx, {
             type: 'scatter',
             data: { datasets: trendDatasets },
             options: {
@@ -444,8 +444,8 @@ function renderCharts(results, jobData, thresholdSet) {
         const corrDatasets = Object.entries(correlationData).map(([status, points]) => ({
             label: status,
             data: points,
-            backgroundColor: (STATUS_COLORS[status] || '#999') + '80',
-            borderColor: (STATUS_COLORS[status] || '#999') + '80',
+            backgroundColor: (SensorQC.STATUS_COLORS[status] || '#999') + '80',
+            borderColor: (SensorQC.STATUS_COLORS[status] || '#999') + '80',
             pointRadius: 4,
             showLine: false
         }));
@@ -494,7 +494,7 @@ function renderCharts(results, jobData, thresholdSet) {
             fill: false
         });
 
-        charts.baselineCorrelation = new Chart(ctx, {
+        SensorQC.charts.baselineCorrelation = new Chart(ctx, {
             type: 'scatter',
             data: { datasets: corrDatasets },
             options: {
@@ -513,7 +513,7 @@ function renderCharts(results, jobData, thresholdSet) {
 }
 
 function renderThresholdInfo(thresholdSet) {
-    const thresholds = THRESHOLDS[thresholdSet];
+    const thresholds = SensorQC.THRESHOLDS[thresholdSet];
     document.getElementById('thresholdInfo').innerHTML = `
         <table class="threshold-table">
             <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
@@ -539,13 +539,13 @@ function renderThresholdInfo(thresholdSet) {
 
 function renderMultiJobCharts(tier) {
     const thresholdSet = document.getElementById('thresholdSet').value;
-    const thresholds = THRESHOLDS[thresholdSet];
+    const thresholds = SensorQC.THRESHOLDS[thresholdSet];
 
     // Destroy existing
-    Object.values(charts).forEach(chart => chart?.destroy());
-    charts = {};
+    Object.values(SensorQC.charts).forEach(chart => chart?.destroy());
+    SensorQC.charts = {};
 
-    const jobs = [...multiJobResults.entries()];
+    const jobs = [...SensorQC.multiJobResults.entries()];
     const JOB_COLORS = ['#667eea', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16', '#06b6d4', '#e11d48', '#a855f7', '#22c55e', '#eab308'];
 
     if (tier === 'few') {
@@ -563,7 +563,7 @@ function renderMultiJobCharts(tier) {
             });
             // Average across all sensors for test 1 (main test)
             const allRows = data.jobData;
-            const timeSeriesData = TIME_POINTS.map(tp => {
+            const timeSeriesData = SensorQC.TIME_POINTS.map(tp => {
                 const readings = allRows.map(r => r[tp]).filter(v => v !== null && !isNaN(v));
                 const mean = readings.length > 0 ? calculateMean(readings) : null;
                 return mean !== null ? { x: Number(tp), y: mean } : null;
@@ -579,7 +579,7 @@ function renderMultiJobCharts(tier) {
             });
         });
 
-        charts.trend = new Chart(trendCtx, {
+        SensorQC.charts.trend = new Chart(trendCtx, {
             type: 'line',
             data: { datasets: trendDatasets },
             options: {
@@ -631,7 +631,7 @@ function renderMultiJobCharts(tier) {
             });
         });
 
-        charts.distribution = new Chart(distCtx, {
+        SensorQC.charts.distribution = new Chart(distCtx, {
             type: 'bar',
             data: { labels: binLabels, datasets: distDatasets },
             options: {
@@ -671,7 +671,7 @@ function renderMultiJobCharts(tier) {
             });
         }
 
-        charts.statusByTest = new Chart(statusCtx, {
+        SensorQC.charts.statusByTest = new Chart(statusCtx, {
             type: 'bar',
             data: { labels: jobLabels, datasets: testDatasets },
             options: {
@@ -708,10 +708,10 @@ function renderMultiJobCharts(tier) {
                 const count = d.results.filter(r => r['Pass/Fail'] === s).length;
                 return parseFloat((count / total * 100).toFixed(1));
             }),
-            backgroundColor: STATUS_COLORS[s]
+            backgroundColor: SensorQC.STATUS_COLORS[s]
         })).filter(ds => ds.data.some(v => v > 0));
 
-        charts.pie = new Chart(pieCtx, {
+        SensorQC.charts.pie = new Chart(pieCtx, {
             type: 'bar',
             data: { labels: jobLabels, datasets: hDatasets },
             options: {
@@ -737,11 +737,11 @@ function renderMultiJobCharts(tier) {
         const total = allResults.length;
         const statusCounts = {};
         allResults.forEach(r => { statusCounts[r['Pass/Fail']] = (statusCounts[r['Pass/Fail']] || 0) + 1; });
-        const pieLabels = Object.keys(statusCounts).sort((a, b) => (STATUS_PRIORITY[a] || 99) - (STATUS_PRIORITY[b] || 99));
+        const pieLabels = Object.keys(statusCounts).sort((a, b) => (SensorQC.STATUS_PRIORITY[a] || 99) - (SensorQC.STATUS_PRIORITY[b] || 99));
         document.getElementById('statusSummary').innerHTML = pieLabels.map(status => {
             const count = statusCounts[status];
             const pct = (count / total * 100).toFixed(1);
-            return `<div class="status-summary-item"><div class="left"><span class="status-pill status-${status}">${status}</span></div><div><span class="count">${count}</span> <span class="pct">(${pct}%)</span></div></div>`;
+            return `<div class="status-summary-item"><div class="left"><span class="status-pill status-${esc(status)}">${esc(status)}</span></div><div><span class="count">${esc(count)}</span> <span class="pct">(${esc(pct)}%)</span></div></div>`;
         }).join('');
 
     } else if (tier === 'many') {
@@ -816,7 +816,7 @@ function renderMultiJobCharts(tier) {
         const minVal = Math.min(...allDotValues);
         const dotYMin = Math.max(0, Math.floor(minVal / 5) * 5 - 5);
 
-        charts.trend = new Chart(trendCtx, {
+        SensorQC.charts.trend = new Chart(trendCtx, {
             type: 'line',
             data: { labels: jobLabels, datasets: dotDatasets },
             options: {
@@ -866,7 +866,7 @@ function renderMultiJobCharts(tier) {
             return density * passRates.length * binWidth;
         });
 
-        charts.distribution = new Chart(distCtx, {
+        SensorQC.charts.distribution = new Chart(distCtx, {
             type: 'bar',
             data: {
                 labels: histLabels,
@@ -924,13 +924,13 @@ function renderMultiJobCharts(tier) {
             failByTestDatasets.push({
                 label: `T${t}`,
                 data: failStatuses.map(s => counts[s]),
-                backgroundColor: TEST_COLORS[(t - 1) % TEST_COLORS.length] + 'cc',
-                borderColor: TEST_COLORS[(t - 1) % TEST_COLORS.length],
+                backgroundColor: SensorQC.TEST_COLORS[(t - 1) % SensorQC.TEST_COLORS.length] + 'cc',
+                borderColor: SensorQC.TEST_COLORS[(t - 1) % SensorQC.TEST_COLORS.length],
                 borderWidth: 1
             });
         }
 
-        charts.statusByTest = new Chart(statusCtx, {
+        SensorQC.charts.statusByTest = new Chart(statusCtx, {
             type: 'bar',
             data: { labels: failStatuses, datasets: failByTestDatasets.filter(ds => ds.data.some(v => v > 0)) },
             options: {
@@ -955,11 +955,11 @@ function renderMultiJobCharts(tier) {
         const totalResults = allResults2.length;
         const statusCounts = {};
         allResults2.forEach(r => { statusCounts[r['Pass/Fail']] = (statusCounts[r['Pass/Fail']] || 0) + 1; });
-        const statusLabels = Object.keys(statusCounts).sort((a, b) => (STATUS_PRIORITY[a] || 99) - (STATUS_PRIORITY[b] || 99));
+        const statusLabels = Object.keys(statusCounts).sort((a, b) => (SensorQC.STATUS_PRIORITY[a] || 99) - (SensorQC.STATUS_PRIORITY[b] || 99));
         const statusValues = statusLabels.map(s => statusCounts[s]);
-        const statusBgColors = statusLabels.map(s => STATUS_COLORS[s] || '#999');
+        const statusBgColors = statusLabels.map(s => SensorQC.STATUS_COLORS[s] || '#999');
 
-        charts.pie = new Chart(pieCtx, {
+        SensorQC.charts.pie = new Chart(pieCtx, {
             type: 'doughnut',
             data: {
                 labels: statusLabels,
@@ -988,7 +988,7 @@ function renderMultiJobCharts(tier) {
         document.getElementById('statusSummary').innerHTML = statusLabels.map(status => {
             const count = statusCounts[status];
             const pct = (count / totalResults * 100).toFixed(1);
-            return `<div class="status-summary-item"><div class="left"><span class="status-pill status-${status}">${status}</span></div><div><span class="count">${count}</span> <span class="pct">(${pct}%)</span></div></div>`;
+            return `<div class="status-summary-item"><div class="left"><span class="status-pill status-${esc(status)}">${esc(status)}</span></div><div><span class="count">${esc(count)}</span> <span class="pct">(${esc(pct)}%)</span></div></div>`;
         }).join('');
 
     } else {
@@ -1059,7 +1059,7 @@ function renderMultiJobCharts(tier) {
                     const ts = d.stats.testStats[t];
                     return ts && ts.total > 0 ? (ts.passed / ts.total * 100) : null;
                 }),
-                borderColor: TEST_COLORS[(t - 1) % TEST_COLORS.length],
+                borderColor: SensorQC.TEST_COLORS[(t - 1) % SensorQC.TEST_COLORS.length],
                 borderWidth: 1.5, pointRadius: 3, borderDash: [5, 3], tension: 0.2
             });
         }
@@ -1109,7 +1109,7 @@ function renderMultiJobCharts(tier) {
         const minRate = allTrendValues.length > 0 ? Math.min(...allTrendValues) : 0;
         const trendYMin = Math.max(0, Math.floor(minRate / 5) * 5 - 5);
 
-        charts.trend = new Chart(trendCtx, {
+        SensorQC.charts.trend = new Chart(trendCtx, {
             type: 'line',
             data: { labels: jobLabels, datasets: trendDatasets },
             options: {
@@ -1187,7 +1187,7 @@ function renderMultiJobCharts(tier) {
 
         heatJobs.forEach(([jobNum, data]) => {
             const totalSensors = data.stats.counted || data.results.length;
-            heatHTML += `<tr><td><strong>${jobNum}</strong></td>`;
+            heatHTML += `<tr><td><strong>${esc(jobNum)}</strong></td>`;
             for (let t = 1; t <= maxT; t++) {
                 const ts = data.stats.testStats[t];
                 if (ts && ts.total > 0) {
@@ -1216,15 +1216,15 @@ function renderMultiJobCharts(tier) {
                 const total = d.stats.counted || d.results.length;
                 return total > 0 ? parseFloat((count / total * 100).toFixed(2)) : 0;
             }),
-            borderColor: STATUS_COLORS[s],
-            backgroundColor: (STATUS_COLORS[s] || '#999') + '80',
+            borderColor: SensorQC.STATUS_COLORS[s],
+            backgroundColor: (SensorQC.STATUS_COLORS[s] || '#999') + '80',
             borderWidth: 1.5,
             pointRadius: 0,
             fill: true,
             tension: 0.3
         })).filter(ds => ds.data.some(v => v > 0));
 
-        charts.statusByTest = new Chart(statusCtx, {
+        SensorQC.charts.statusByTest = new Chart(statusCtx, {
             type: 'line',
             data: { labels: jobLabels, datasets: failAreaDatasets },
             options: {
@@ -1268,15 +1268,15 @@ function renderMultiJobCharts(tier) {
         const failTrendDatasets = failTrendStatuses.map(s => ({
             label: s,
             data: perJobFailCounts.map(c => c._total > 0 ? parseFloat((c[s] / c._total * 100).toFixed(1)) : 0),
-            borderColor: STATUS_COLORS[s] || '#999',
-            backgroundColor: (STATUS_COLORS[s] || '#999') + '80',
+            borderColor: SensorQC.STATUS_COLORS[s] || '#999',
+            backgroundColor: (SensorQC.STATUS_COLORS[s] || '#999') + '80',
             borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.3
         })).filter(ds => ds.data.some(v => v > 0));
 
         const labelInterval = Math.max(1, Math.floor(jobLabels.length / 20));
         const thinLabels = jobLabels.map((l, i) => i % labelInterval === 0 ? l : '');
 
-        charts.pie = new Chart(pieCtx, {
+        SensorQC.charts.pie = new Chart(pieCtx, {
             type: 'line',
             data: { labels: thinLabels, datasets: failTrendDatasets },
             options: {
@@ -1315,7 +1315,7 @@ function renderMultiJobCharts(tier) {
         const sortedFailTypes = Object.entries(failTypeCounts).sort((a, b) => b[1] - a[1]);
         document.getElementById('statusSummary').innerHTML = sortedFailTypes.map(([status, count]) => {
             const pct = (count / totalAllResults * 100).toFixed(1);
-            return `<div class="status-summary-item"><div class="left"><span class="status-pill status-${status}">${status}</span></div><div><span class="count">${count}</span> <span class="pct">(${pct}%)</span></div></div>`;
+            return `<div class="status-summary-item"><div class="left"><span class="status-pill status-${esc(status)}">${esc(status)}</span></div><div><span class="count">${esc(count)}</span> <span class="pct">(${esc(pct)}%)</span></div></div>`;
         }).join('');
     }
 
@@ -1369,7 +1369,7 @@ function renderMultiJobCharts(tier) {
             });
         }
 
-        charts.baselineDist = new Chart(ctx, {
+        SensorQC.charts.baselineDist = new Chart(ctx, {
             type: 'bar',
             data: { labels: baselineBinLabels, datasets: baselineDatasets },
             options: {
@@ -1415,8 +1415,8 @@ function renderMultiJobCharts(tier) {
             blTrendDatasets.push({
                 label: `Test ${t}`,
                 data: points,
-                backgroundColor: (TEST_COLORS[t - 1] || TEST_COLORS[0]) + '80',
-                borderColor: (TEST_COLORS[t - 1] || TEST_COLORS[0]) + '80',
+                backgroundColor: (SensorQC.TEST_COLORS[t - 1] || SensorQC.TEST_COLORS[0]) + '80',
+                borderColor: (SensorQC.TEST_COLORS[t - 1] || SensorQC.TEST_COLORS[0]) + '80',
                 pointRadius: 4,
                 showLine: false
             });
@@ -1443,7 +1443,7 @@ function renderMultiJobCharts(tier) {
             fill: false
         });
 
-        charts.baselineTrend = new Chart(ctx, {
+        SensorQC.charts.baselineTrend = new Chart(ctx, {
             type: 'scatter',
             data: { datasets: blTrendDatasets },
             options: {
@@ -1482,8 +1482,8 @@ function renderMultiJobCharts(tier) {
         const corrDatasets = Object.entries(correlationData).map(([status, points]) => ({
             label: status,
             data: points,
-            backgroundColor: (STATUS_COLORS[status] || '#999') + '80',
-            borderColor: (STATUS_COLORS[status] || '#999') + '80',
+            backgroundColor: (SensorQC.STATUS_COLORS[status] || '#999') + '80',
+            borderColor: (SensorQC.STATUS_COLORS[status] || '#999') + '80',
             pointRadius: 4,
             showLine: false
         }));
@@ -1529,7 +1529,7 @@ function renderMultiJobCharts(tier) {
             fill: false
         });
 
-        charts.baselineCorrelation = new Chart(ctx, {
+        SensorQC.charts.baselineCorrelation = new Chart(ctx, {
             type: 'scatter',
             data: { datasets: corrDatasets },
             options: {
